@@ -6,14 +6,26 @@ and the [`h^`](hackattic.com) challenges to learn Elixir.
 
 ## Deploy and run
 
-- Create an Ubuntu instance on AWS.
-- Expose all TCP ports to all traffic.
-- Attach an elastic IP just in case.
-- [Install Elixir](#install-elixir)
-- [Copy over files](#copy-over-files)
-- SSH into the Ubuntu instance
-- [Build a release](#build-a-release)
-- [Run the server](#run-the-server)
+1. Create an Ubuntu instance on AWS.
+1. Expose all TCP ports to all traffic.
+1. Attach an elastic IP just in case.
+1. [Install Elixir](#install-elixir)
+1. [Copy over files](#copy-over-files)
+1. SSH into the Ubuntu instance
+1. [Build a release](#build-a-release)
+1. [Run the server](#run-the-server)
+
+Alternatively, after installing Elixir, use
+[`redeploy.sh`](./redeploy.sh) to sync, build and run an app.
+You'll need to modify [`env.sh`](./env.sh) first to update the
+username and host IP.
+
+For example, the following will resync, build and run the `echo_server`
+app:
+
+```
+$ ./redeploy.sh echo_server
+```
 
 ### Install Elixir
 

@@ -7,9 +7,11 @@ defmodule PrimeTime.Application do
 
   @impl true
   def start(_type, _args) do
+    port = String.to_integer(System.get_env("PORT") || "7")
+
     children = [
-      # Starts a worker by calling: PrimeTime.Worker.start_link(arg)
-      # {PrimeTime.Worker, arg}
+      {DynamicSupervisor, strategy: :one_for_one, name: PrimeTime.ClientSupervisor},
+      {PrimeTime, [port: port]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

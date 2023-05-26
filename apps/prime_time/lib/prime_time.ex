@@ -2,17 +2,41 @@ defmodule PrimeTime do
   @moduledoc """
   Documentation for `PrimeTime`.
   """
+  require Logger
 
-  @doc """
-  Hello world.
+  use GenServer, restart: :permanent
 
-  ## Examples
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts)
+  end
 
-      iex> PrimeTime.hello()
-      :world
+  @impl true
+  def init(port: port) do
+    {:ok, socket} =
+      :gen_tcp.listen(port, [
+        :binary,
+        packet: :line,
+        active: true,
+        exit_on_close: false,
+        reuseaddr: true
+      ])
 
-  """
-  def hello do
-    :world
+    Logger.info("listening on #{port}")
+
+    {:ok, socket, {:continue, :accept}}
+  end
+
+  @impl true
+  @spec handle_continue(:accept, :gen_tcp.socket()) ::
+          {:noreply, :gen_tcp.socket(), {:continue, :accept}}
+  def handle_continue(:accept, socket) do
+    {:ok, client} = :gen_tcp.accept(socket)
+
+    Logger.info("client connected: #{inspect(client)}")
+
+    {:ok, pid} = DynamicSupervisor.start_child(PrimeTime.ClientSupervisor, PrimeTime.Client)
+    :ok = :gen_tcp.controlling_process(client, pid)
+
+    {:noreply, socket, {:continue, :accept}}
   end
 end

@@ -10,8 +10,8 @@ defmodule EchoServer.Application do
     port = String.to_integer(System.get_env("PORT") || "7")
 
     children = [
-      {Task.Supervisor, name: EchoServer.TaskSupervisor},
-      Supervisor.child_spec({Task, fn -> EchoServer.accept(port) end}, restart: :permanent)
+      {DynamicSupervisor, strategy: :one_for_one, name: EchoServer.ClientSupervisor},
+      {EchoServer, [port: port]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

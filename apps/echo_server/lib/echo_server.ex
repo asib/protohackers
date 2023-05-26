@@ -5,41 +5,33 @@ defmodule EchoServer do
 
   require Logger
 
-  @spec accept(integer()) :: nil
-  def accept(port) do
+  use GenServer, restart: :permanent
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts)
+  end
+
+  @impl true
+  def init(port: port) do
     {:ok, socket} =
-      :gen_tcp.listen(port, [:binary, active: false, exit_on_close: false, reuseaddr: true])
+      :gen_tcp.listen(port, [:binary, active: true, exit_on_close: false, reuseaddr: true])
 
     Logger.info("listening on #{port}")
 
-    loop_acceptor(socket)
+    {:ok, socket, {:continue, :accept}}
   end
 
-  @spec loop_acceptor(:gen_tcp.socket()) :: nil
-  defp loop_acceptor(socket) do
+  @impl true
+  @spec handle_continue(:accept, :gen_tcp.socket()) ::
+          {:noreply, :gen_tcp.socket(), {:continue, :accept}}
+  def handle_continue(:accept, socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    {:ok, pid} = Task.Supervisor.start_child(EchoServer.TaskSupervisor, fn -> serve(client) end)
+
+    Logger.info("client connected: #{inspect(client)}")
+
+    {:ok, pid} = DynamicSupervisor.start_child(EchoServer.ClientSupervisor, EchoServer.Client)
     :ok = :gen_tcp.controlling_process(client, pid)
-    loop_acceptor(socket)
-  end
 
-  @spec serve(:gen_tcp.socket()) :: nil
-  defp serve(socket) do
-    socket
-    |> read_all()
-    |> write_all(socket)
-
-    serve(socket)
-  end
-
-  @spec read_all(:gen_tcp.socket()) :: binary()
-  defp read_all(socket) do
-    {:ok, packet} = :gen_tcp.recv(socket, 0)
-    packet
-  end
-
-  @spec write_all(binary(), :gen_tcp.socket()) :: :ok
-  def write_all(data, socket) do
-    :gen_tcp.send(socket, data)
+    {:noreply, socket, {:continue, :accept}}
   end
 end

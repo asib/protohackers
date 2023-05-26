@@ -1,1 +1,4 @@
-ssh -i protohackers.cer ubuntu@54.237.154.154
+set -x
+source env.sh
+
+ssh -i protohackers.cer $HOST

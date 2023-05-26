@@ -1,1 +1,4 @@
-rsync -i protohackers.cer -r apps config mix.exs .formatter.exs ubuntu@54.237.154.154:/home/ubuntu/protohackers/git s
+set -x
+source env.sh
+
+rsync -i protohackers.cer -r apps config mix.exs .formatter.exs run.sh $HOST:/home/ubuntu/protohackers/

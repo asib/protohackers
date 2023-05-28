@@ -12,7 +12,7 @@ defmodule Protohackers.Application do
          port <- String.to_integer(port_string),
          app_name when not is_nil(app_name) <- System.get_env("APP_NAME") do
 
-        client_handler = Module.concat([Protohackers, app_name, Client])
+        client_handler = Module.concat([Protohackers, Macro.camelize(app_name), Client])
         children = [
           {Protohackers.Server, [port: port, client_handler: client_handler]}
         ]

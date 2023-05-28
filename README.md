@@ -41,8 +41,8 @@ $ fly scale memory 512
 1. [Run the server](#run-the-server)
 
 Alternatively, after installing Elixir, use
-[`redeploy.sh`](./redeploy.sh) to sync, build and run an app.
-You'll need to modify [`env.sh`](./env.sh) first to update the
+[`redeploy.sh`](./scripts/redeploy.sh) to sync, build and run an app.
+You'll need to modify [`env.sh`](./scripts/env.sh) first to update the
 username and host IP.
 
 For example, the following will resync, build and run the `echo_server`

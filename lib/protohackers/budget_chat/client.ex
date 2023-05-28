@@ -8,6 +8,7 @@ defmodule Protohackers.BudgetChat.Client do
   typedstruct do
     field :name, String.t() | nil, default: nil
     field :mode, :awaiting_name | :active, default: :awaiting_name
+    field :tcp_socket, :gen_tcp.socket(), enforce: true
   end
 
   def server_socket_opts do
@@ -23,8 +24,8 @@ defmodule Protohackers.BudgetChat.Client do
   end
 
   @impl true
-  def init(_opts) do
-    {:ok, %__MODULE__{}}
+  def init(tcp_socket: socket) do
+    {:ok, %__MODULE__{tcp_socket: socket}}
   end
 
   def handle_info({:tcp, client_socket, client_name}, %__MODULE__{ mode: :awaiting_name } = state) do
@@ -44,6 +45,15 @@ defmodule Protohackers.BudgetChat.Client do
     :ok = :gen_tcp.close(client_socket)
 
     {:stop, :normal, nil}
+  end
+
+  @impl true
+  def handle_cast({:new_client, client_name}, state) do
+    Logger.info("informing existing clients of new client")
+
+    :ok = :gen_tcp.send(state.tcp_socket, "* #{client_name} has entered the room\n")
+
+    {:noreply, state}
   end
 
   @impl true

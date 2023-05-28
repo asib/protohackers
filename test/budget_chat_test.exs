@@ -26,6 +26,12 @@ defmodule BudgetChatTest do
     {:ok, socket}
   end
 
+  defp connect_with_name_and_presence(name, existing_names) do
+    {:ok, socket} = connect_with_name(name)
+    assert :gen_tcp.recv(socket, 0) == {:ok, "* The room contains: #{Enum.join(existing_names, ", ")}\n"}
+    {:ok, socket}
+  end
+
   test "clients are welcomed" do
     {:ok, socket} = connect()
     assert :gen_tcp.recv(socket, 0) == {:ok, "Welcome to budgetchat! What shall I call you?\n"}
@@ -38,11 +44,16 @@ defmodule BudgetChatTest do
     assert Room.client_names() == ["bob"]
   end
 
-  test "connected clients are notified of new user" do
+  test "new clients are notified of existing clients" do
     connect_with_name("alice")
     {:ok, socket} = connect_with_name("bob")
     assert :gen_tcp.recv(socket, 0) == {:ok, "* The room contains: alice\n"}
     assert Room.client_names() == ["bob", "alice"]
   end
 
+  test "connected clients are notified of new user" do
+    {:ok, socket} = connect_with_name_and_presence("alice", [])
+    connect_with_name("bob")
+    assert :gen_tcp.recv(socket, 0) == {:ok, "* bob has entered the room\n"}
+  end
 end

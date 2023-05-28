@@ -27,11 +27,26 @@ defmodule Protohackers.BudgetChat.Room do
       GenServer.cast(pid, {:new_client, client_name})
     end)
 
-    {:reply, :ok, %{ state | clients: [%User{ pid: from_pid, name: client_name } | state.clients] }}
+    existing_clients = get_client_names(state)
+    {:reply, {:ok, existing_clients}, %{ state | clients: [%User{ pid: from_pid, name: client_name } | state.clients] }}
+  end
+
+  @impl true
+  def handle_call(:get_client_names, _from, state) do
+    {:reply, get_client_names(state), state}
   end
 
   @spec register(String.t()) :: :ok
   def register(client_name) do
     GenServer.call(@name, {:register, client_name})
+  end
+
+  @spec client_names() :: list(String.t())
+  def client_names() do
+    GenServer.call(@name, :get_client_names)
+  end
+
+  defp get_client_names(state) do
+    state.clients |> Enum.map(&Map.fetch!(&1, :name))
   end
 end

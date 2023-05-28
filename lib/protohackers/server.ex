@@ -21,6 +21,13 @@ defmodule Protohackers.Server do
 
     {:ok, client_supervisor_pid} = DynamicSupervisor.start_link(strategy: :one_for_one)
 
+    if Kernel.function_exported?(client_handler, :applications, 0) do
+      Kernel.apply(client_handler, :applications, [])
+      |> Enum.each(fn app ->
+        DynamicSupervisor.start_child(client_supervisor_pid, app)
+      end)
+    end
+
     {:ok, %__MODULE__{listen_socket: socket, client_supervisor: client_supervisor_pid, client_handler: client_handler}, {:continue, :accept}}
   end
 

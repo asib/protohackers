@@ -3,13 +3,19 @@ defmodule Protohackers.BudgetChat.Client do
 
   use TypedStruct
   require Logger
+  alias Protohackers.BudgetChat.Room
 
   typedstruct do
     field :name, String.t() | nil, default: nil
+    field :mode, :awaiting_name | :active, default: :awaiting_name
   end
 
   def server_socket_opts do
     [packet: :line]
+  end
+
+  def applications do
+    [Room]
   end
 
   def start_link(opts) do
@@ -21,10 +27,12 @@ defmodule Protohackers.BudgetChat.Client do
     {:ok, %__MODULE__{}}
   end
 
-  @impl true
-  def handle_cast({:client_connected, socket}, state) do
-    Logger.debug("sending welcome message")
-    :ok = :gen_tcp.send(socket, "Welcome to budgetchat! What shall I call you?\n")
+  def handle_info({:tcp, client_socket, client_name}, %__MODULE__{ mode: :awaiting_name } = state) do
+    Logger.info("registering client #{client_name}")
+
+    {:ok, existing_users} = Room.register(String.trim_trailing(client_name))
+
+    :ok = :gen_tcp.send(client_socket, "* The room contains: #{existing_users |> Enum.join(", ")}\n")
 
     {:noreply, state}
   end

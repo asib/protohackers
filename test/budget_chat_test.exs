@@ -1,9 +1,48 @@
 defmodule BudgetChatTest do
+  require Logger
   use ExUnit.Case
 
-  test "clients are welcomed" do
-    {:ok, socket} = :gen_tcp.connect(~c"localhost", 5000, mode: :binary, active: false, packet: :line)
+  alias Protohackers.BudgetChat.Room
 
+  setup do
+    # Supervisor will handle restarting, so we
+    # kill to reset the state.
+    GenServer.stop(BudgetChat.Room, :normal)
+  end
+
+  defp connect() do
+    :gen_tcp.connect(~c"localhost", 5000, mode: :binary, active: false, packet: :line, reuseaddr: true)
+  end
+
+  defp connect_skip_welcome() do
+    {:ok, socket} = connect()
+    assert :gen_tcp.recv(socket, 0) == {:ok, "Welcome to budgetchat! What shall I call you?\n"}
+    {:ok, socket}
+  end
+
+  defp connect_with_name(name) do
+    {:ok, socket} = connect_skip_welcome()
+    assert :gen_tcp.send(socket, "#{name}\n") == :ok
+    {:ok, socket}
+  end
+
+  test "clients are welcomed" do
+    {:ok, socket} = connect()
     assert :gen_tcp.recv(socket, 0) == {:ok, "Welcome to budgetchat! What shall I call you?\n"}
   end
+
+  test "can register with new name" do
+    {:ok, socket} = connect_skip_welcome()
+    assert :gen_tcp.send(socket, "bob\n") == :ok
+    assert :gen_tcp.recv(socket, 0) == {:ok, "* The room contains: \n"}
+    assert Room.client_names() == ["bob"]
+  end
+
+  test "connected clients are notified of new user" do
+    connect_with_name("alice")
+    {:ok, socket} = connect_with_name("bob")
+    assert :gen_tcp.recv(socket, 0) == {:ok, "* The room contains: alice\n"}
+    assert Room.client_names() == ["bob", "alice"]
+  end
+
 end

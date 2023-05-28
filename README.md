@@ -4,7 +4,32 @@ Solutions to the [protohackers](protohackers.com) challenges.
 These are probably not at all idiomatic - I used these challenges
 and the [`h^`](hackattic.com) challenges to learn Elixir.
 
-## Deploy and run
+## Deploy and run on Fly.io
+
+The Dockerfile accepts an `APPLICATION` argument, which will run
+the specified application:
+
+```
+fly deploy --build-arg APPLICATION=means_to_an_end
+```
+
+### Memory
+
+_Means to an End_ required additional memory. Fly enables updating
+memory using the `fly scale` command:
+
+```
+$ fly scale show      
+VM Resources for app: protohackers-asib
+
+Groups
+NAME    COUNT   KIND    CPUS    MEMORY  REGIONS 
+app     1       shared  1       256 MB  lhr    
+
+$ fly scale memory 512
+```
+
+## Deploy and run on AWS
 
 1. Create an Ubuntu instance on AWS.
 1. Expose all TCP ports to all traffic.

@@ -24,7 +24,7 @@ defmodule Protohackers.Server do
 
   @impl true
   def handle_continue(:accept, state) do
-    {:ok, client} = :gen_tcp.accept(state.socket)
+    {:ok, client} = :gen_tcp.accept(state.listen_socket)
 
     Logger.info("client connected: #{inspect(client)}")
 

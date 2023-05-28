@@ -10,10 +10,12 @@ defmodule Protohackers.Server do
   end
 
   @impl true
-  @spec init([port: integer(), client_handler: GenServer.name()]) :: {:ok, %__MODULE__{}, {:continue, :accept}}
-  def init(port: port, client_handler: client_handler) do
+  def init(port: port, client_handler: client_handler, socket_opts: socket_opts) do
+    default_listen_opts = [mode: :binary, active: true, exit_on_close: false, reuseaddr: true]
+    listen_opts = Keyword.merge(default_listen_opts, socket_opts, fn _key, _default_value, argument_value -> argument_value end)
+
     {:ok, socket} =
-      :gen_tcp.listen(port, [:binary, active: true, exit_on_close: false, reuseaddr: true])
+      :gen_tcp.listen(port, listen_opts)
 
     Logger.info("listening on #{port}")
 

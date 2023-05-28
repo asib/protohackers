@@ -4,6 +4,10 @@ defmodule Protohackers.PrimeTime.Client do
   require Logger
   require Jason
 
+  def server_socket_opts do
+    [packet: :line]
+  end
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end

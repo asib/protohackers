@@ -1,0 +1,17 @@
+# fly.toml app configuration file generated for protohackers-asib on 2023-05-28T15:41:07+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "protohackers-asib"
+kill_signal = "SIGTERM"
+kill_timeout = 5
+primary_region = "lhr"
+
+[[services]]
+internal_port = 5000
+protocol = "tcp"
+
+  [[services.ports]]
+  handlers = []
+  port = "5000"

@@ -11,10 +11,16 @@ defmodule Protohackers.Application do
          port <- String.to_integer(port_string),
          {:ok, app_name} <- fetch_env("APP_NAME"),
          client_handler_name <- Module.concat([Protohackers, Macro.camelize(app_name), Client]),
-         {:module, client_handler} <- ensure_compiled(client_handler_name) do
+         {:module, client_handler_module} <- ensure_compiled(client_handler_name) do
+
+        socket_opts = if Kernel.function_exported?(client_handler_module, :server_socket_opts, 0) do
+          Kernel.apply(client_handler_module, :server_socket_opts, [])
+        else
+          []
+        end
 
         children = [
-          {Protohackers.Server, [port: port, client_handler: client_handler]}
+          {Protohackers.Server, [port: port, client_handler: client_handler_module, socket_opts: socket_opts]}
         ]
 
         opts = [strategy: :one_for_one, name: Protohackers.Supervisor]

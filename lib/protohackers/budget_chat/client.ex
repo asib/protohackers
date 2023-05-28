@@ -25,7 +25,7 @@ defmodule Protohackers.BudgetChat.Client do
 
   @impl true
   def init(tcp_socket: socket) do
-    {:ok, %__MODULE__{tcp_socket: socket}}
+    {:ok, %__MODULE__{tcp_socket: socket}, {:continue, :welcome}}
   end
 
   def handle_info({:tcp, client_socket, client_name}, %__MODULE__{ mode: :awaiting_name } = state) do
@@ -57,16 +57,10 @@ defmodule Protohackers.BudgetChat.Client do
   end
 
   @impl true
-  def handle_cast({:client_connected, socket}, state) do
+  def handle_continue(:welcome, state) do
     Logger.debug("sending welcome message")
-    :ok = :gen_tcp.send(socket, "Welcome to budgetchat! What shall I call you?\n")
+    :ok = :gen_tcp.send(state.tcp_socket, "Welcome to budgetchat! What shall I call you?\n")
 
     {:noreply, state}
-  end
-
-  @spec client_connected(pid(), :gen_tcp.socket()) :: :ok
-  def client_connected(pid, client_socket) do
-    Logger.debug("casting welcome message")
-    GenServer.cast(pid, {:client_connected, client_socket})
   end
 end

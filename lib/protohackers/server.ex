@@ -40,10 +40,6 @@ defmodule Protohackers.Server do
     {:ok, pid} = DynamicSupervisor.start_child(state.client_supervisor, {state.client_handler, [tcp_socket: client]})
     :ok = :gen_tcp.controlling_process(client, pid)
 
-    if Kernel.function_exported?(state.client_handler, :client_connected, 2) do
-      Kernel.apply(state.client_handler, :client_connected, [pid, client])
-    end
-
     {:noreply, state, {:continue, :accept}}
   end
 end

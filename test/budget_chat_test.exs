@@ -15,7 +15,12 @@ defmodule BudgetChatTest do
   end
 
   defp connect() do
-    :gen_tcp.connect(~c"localhost", 5000, [mode: :binary, active: false, packet: :line, reuseaddr: true], 1000)
+    :gen_tcp.connect(
+      ~c"localhost",
+      5000,
+      [mode: :binary, active: false, packet: :line, reuseaddr: true],
+      1000
+    )
   end
 
   defp connect_skip_welcome() do

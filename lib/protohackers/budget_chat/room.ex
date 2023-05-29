@@ -10,7 +10,7 @@ defmodule Protohackers.BudgetChat.Room do
   @typep client_list() :: list(User.t())
 
   typedstruct do
-    field :clients, client_list(), default: []
+    field(:clients, client_list(), default: [])
   end
 
   def start_link(_opts \\ []) do
@@ -31,7 +31,9 @@ defmodule Protohackers.BudgetChat.Room do
     end)
 
     existing_clients = get_client_names(state)
-    {:reply, {:ok, existing_clients}, %{ state | clients: [%User{ pid: from_pid, name: client_name } | state.clients] }}
+
+    {:reply, {:ok, existing_clients},
+     %{state | clients: [%User{pid: from_pid, name: client_name} | state.clients]}}
   end
 
   @impl true
@@ -43,6 +45,7 @@ defmodule Protohackers.BudgetChat.Room do
   @impl true
   def handle_cast({:send_message, from_pid, from, message}, state) do
     Logger.debug("#{inspect([self(), state])}")
+
     state.clients
     |> Stream.filter(fn %User{pid: pid} -> pid != from_pid end)
     |> Enum.each(fn %User{pid: pid, name: name} ->
@@ -56,9 +59,10 @@ defmodule Protohackers.BudgetChat.Room do
   @impl true
   def handle_cast({:unregister, from_pid, from}, state) do
     Logger.debug("#{inspect([self(), state])}")
-    new_clients = state.clients
-    |> Enum.filter(fn %User{pid: pid} -> pid != from_pid end)
 
+    new_clients =
+      state.clients
+      |> Enum.filter(fn %User{pid: pid} -> pid != from_pid end)
 
     Enum.each(new_clients, fn %User{pid: pid} ->
       GenServer.cast(pid, {:disconnected, from})

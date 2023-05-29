@@ -6,9 +6,9 @@ defmodule Protohackers.BudgetChat.Client do
   alias Protohackers.BudgetChat.Room
 
   typedstruct do
-    field :name, String.t() | nil, default: nil
-    field :mode, :awaiting_name | :active, default: :awaiting_name
-    field :tcp_socket, :gen_tcp.socket(), enforce: true
+    field(:name, String.t() | nil, default: nil)
+    field(:mode, :awaiting_name | :active, default: :awaiting_name)
+    field(:tcp_socket, :gen_tcp.socket(), enforce: true)
   end
 
   def server_socket_opts do
@@ -29,16 +29,20 @@ defmodule Protohackers.BudgetChat.Client do
   end
 
   @impl true
-  def handle_info({:tcp, client_socket, client_name}, %__MODULE__{ mode: :awaiting_name } = state) do
+  def handle_info({:tcp, client_socket, client_name}, %__MODULE__{mode: :awaiting_name} = state) do
     stripped_client_name = String.trim_trailing(client_name)
 
     if stripped_client_name =~ ~r/^[a-zA-Z0-9]+$/ do
       Logger.info("registering client #{inspect(stripped_client_name)}")
       {:ok, existing_users} = Room.register(stripped_client_name)
 
-      :ok = :gen_tcp.send(client_socket, "* The room contains: #{existing_users |> Enum.join(", ")}\n")
+      :ok =
+        :gen_tcp.send(
+          client_socket,
+          "* The room contains: #{existing_users |> Enum.join(", ")}\n"
+        )
 
-      {:noreply, %{state | mode: :active, name: stripped_client_name }}
+      {:noreply, %{state | mode: :active, name: stripped_client_name}}
     else
       Logger.info("illegal name #{inspect(stripped_client_name)}")
       {:stop, :normal, nil}
@@ -46,7 +50,7 @@ defmodule Protohackers.BudgetChat.Client do
   end
 
   @impl true
-  def handle_info({:tcp, _client_socket, message}, %__MODULE__{ mode: :active } = state) do
+  def handle_info({:tcp, _client_socket, message}, %__MODULE__{mode: :active} = state) do
     :ok = Room.send_message(self(), state.name, message)
 
     {:noreply, state}

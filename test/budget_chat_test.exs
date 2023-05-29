@@ -60,4 +60,9 @@ defmodule BudgetChatTest do
     connect_with_name("bob")
     assert recv(socket) == {:ok, "* bob has entered the room\n"}
   end
+
+  test "can send messages" do
+    {:ok, socket} = connect_with_name_and_presence("bob", [])
+    assert :gen_tcp.send(socket, "hey everyone!\n") == :ok
+  end
 end

@@ -67,7 +67,7 @@ defmodule Protohackers.BudgetChat.Room do
     {:noreply, %{state | clients: new_clients}}
   end
 
-  @spec register(String.t()) :: :ok
+  @spec register(String.t()) :: {:ok, client_list()}
   def register(client_name) do
     GenServer.call(@name, {:register, client_name})
   end

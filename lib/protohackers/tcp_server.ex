@@ -1,4 +1,4 @@
-defmodule Protohackers.Server do
+defmodule Protohackers.TCPServer do
   require Logger
 
   use GenServer, restart: :permanent

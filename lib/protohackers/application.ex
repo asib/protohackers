@@ -20,7 +20,7 @@ defmodule Protohackers.Application do
         end
 
         children = [
-          {Protohackers.Server, [port: port, client_handler: client_handler_module, socket_opts: socket_opts]}
+          {Protohackers.TCPServer, [port: port, client_handler: client_handler_module, socket_opts: socket_opts]}
         ]
 
         opts = [strategy: :one_for_one, name: Protohackers.Supervisor]

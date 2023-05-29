@@ -9,11 +9,12 @@ defmodule Protohackers.UDPServer do
 
   @impl true
   def init(port: port, client_handler: client_handler) do
-    listen_opts = [mode: :binary, active: true]
+    {:ok, addr} = :inet.getaddr(~c"fly-global-services", :inet)
+    listen_opts = [mode: :binary, active: true, ip: addr, recbuf: 1000]
 
     {:ok, socket} = :gen_udp.open(port, listen_opts)
 
-    Logger.info("listening on #{port}")
+    Logger.info("listening on #{inspect(addr)}:#{port}")
 
     applications =
       case Kernel.function_exported?(client_handler, :applications, 0) do

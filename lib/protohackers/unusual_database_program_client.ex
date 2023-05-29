@@ -18,8 +18,6 @@ defmodule Protohackers.UnusualDatabaseProgram.Client do
 
   @impl true
   def handle_info({:udp, server_socket, client_ip, client_port, msg}, db) do
-    msg = String.trim(msg)
-
     if String.contains?(msg, "=") do
       handle_insert(msg, db)
     else
@@ -28,9 +26,8 @@ defmodule Protohackers.UnusualDatabaseProgram.Client do
   end
 
   defp handle_insert(msg, db) do
-    Logger.info("inserting #{msg}")
-
     [key, value] = String.split(msg, "=", parts: 2)
+    Logger.info("inserting #{inspect(key)} => #{inspect(value)}")
     true = :ets.insert(db, {key, value})
 
     {:noreply, db}
@@ -47,11 +44,14 @@ defmodule Protohackers.UnusualDatabaseProgram.Client do
         _ ->
           case :ets.lookup(db, msg) do
             [{^msg, value}] -> value
-            _ -> ""
+            _ -> nil
           end
       end
 
-    :gen_udp.send(socket, client_ip, client_port, "#{msg}=#{value}")
+    if not is_nil(value) do
+      Logger.info("got value #{inspect(value)}")
+      :gen_udp.send(socket, client_ip, client_port, "#{msg}=#{value}")
+    end
 
     {:noreply, db}
   end

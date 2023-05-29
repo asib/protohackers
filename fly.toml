@@ -9,9 +9,15 @@ kill_timeout = 5
 primary_region = "lhr"
 
 [[services]]
-internal_port = 5000
-protocol = "tcp"
+  internal_port = 5000
+  protocol = "tcp"
 
   [[services.ports]]
-  handlers = []
-  port = "5000"
+    port = "5000"
+
+[[services]]
+  internal_port = 5000
+  protocol = "udp"
+
+  [[services.ports]]
+    port = "5000"

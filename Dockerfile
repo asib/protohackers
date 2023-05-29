@@ -16,7 +16,7 @@ WORKDIR /app
 RUN mix do local.hex --force, local.rebar --force
 
 # Copy configuration from this app and all children
-# COPY config config
+COPY config config
 
 # Copy mix.exs and mix.lock from all children applications
 COPY mix.exs ./

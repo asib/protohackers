@@ -72,15 +72,23 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
 
   @impl true
   def handle_call({:get, path, revision}, _from, %{files_by_path: files_by_path} = state) do
-    {dir_path, file_name} = file_name_and_directory(path)
-
     result =
-      with {:ok, files_in_directory} <- files_in_directory(files_by_path, dir_path),
+      with {:ok, dir_path, file_name} <- get_legal_file_name_and_directory(path),
+           {:ok, files_in_directory} <- files_in_directory(files_by_path, dir_path),
            {:found_file, file} <- find_file_in_directory(files_in_directory, file_name) do
         get_file_data_for_revision(file, revision)
       end
 
     {:reply, result, state}
+  end
+
+  defp get_legal_file_name_and_directory(path) do
+    if not String.starts_with?(path, "/") or String.ends_with?(path, "/") do
+      {:error, :illegal_file_name}
+    else
+      {dir_path, file_name} = file_name_and_directory(path)
+      {:ok, dir_path, file_name}
+    end
   end
 
   defp files_in_directory(files_by_path, dir_path) do

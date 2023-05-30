@@ -92,6 +92,14 @@ defmodule FileSystemTest do
     assert FileSystem.get("/a", 2) == {:error, :no_such_revision}
   end
 
+  test "get path must have leading slash" do
+    assert FileSystem.get("abc") == {:error, :illegal_file_name}
+  end
+
+  test "get path must not have trailing slash" do
+    assert FileSystem.get("/abc/") == {:error, :illegal_file_name}
+  end
+
   test "can get file name and directory path from full path" do
     assert FileSystem.file_name_and_directory("/a") == {"/", "a"}
     assert FileSystem.file_name_and_directory("/a/b/c") == {"/a/b", "c"}

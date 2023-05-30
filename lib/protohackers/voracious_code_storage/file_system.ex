@@ -60,7 +60,28 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     {:reply, 1, %{state | files: new_files}}
   end
 
+  @spec fresh_file(String.t(), binary()) :: File.t()
   defp fresh_file(name, data), do: %File{name: name, revisions: %{1 => data}}
+
+  @spec update_directory(list(File.t()), String.t(), binary()) :: list(File.t())
+  defp update_directory(existing_files, file_name, data) do
+    case existing_files |> Enum.find(fn file -> file.name == file_name end) do
+      nil ->
+        [fresh_file(file_name, data) | existing_files]
+
+      index ->
+        List.update_at(existing_files, index, fn file -> nil end)
+    end
+  end
+
+  def update_file(%File{revisions: revisions} = file, new_data) do
+    new_revision =
+      (revisions
+       |> Map.keys()
+       |> Enum.max(fn -> 0 end)) + 1
+
+    %File{file | revisions: Map.put(revisions, new_revision, new_data)}
+  end
 
   @spec list(String.t()) :: list(File.t())
   def list(path) do

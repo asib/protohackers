@@ -33,16 +33,16 @@ defmodule CommandParserTest do
   end
 
   @put_success_cases [
-    {"/bla.txt 5\nhello", {"/bla.txt", "hello"}, "can parse put"},
-    {"/test 2b\na\n", {"/test", "a\n"}, "ignore characters after length but before newline"},
-    {"/test bla\n", {"/test", ""}, "(1): non-numeric length is parsed as 0"},
-    {"/test _\n", {"/test", ""}, "(2): non-numeric length is parsed as 0"}
+    {"/bla.txt 5\n", {"/bla.txt", 5}, "can parse put"},
+    {"/test 2b\n", {"/test", 2}, "ignore characters after length but before newline"},
+    {"/test bla\n", {"/test", 0}, "(1): non-numeric length is parsed as 0"},
+    {"/test _\n", {"/test", 0}, "(2): non-numeric length is parsed as 0"}
   ]
 
-  for {input, {path, data}, case_name} <- @put_success_cases do
+  for {input, {path, length}, case_name} <- @put_success_cases do
     test case_name do
       assert parse("put #{unquote(input)}") ==
-               {:ok, %CommandParser.Put{path: unquote(path), data: unquote(data)}, ""}
+               {:ok, %CommandParser.Put{path: unquote(path), length: unquote(length)}, ""}
     end
   end
 

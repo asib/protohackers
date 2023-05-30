@@ -14,7 +14,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   end
 
   defmodule Put do
-    defstruct [:path, :data]
+    defstruct [:path, :length]
   end
 
   @spec parse(binary()) :: {:ok, result(), binary()} | :incomplete | error()
@@ -40,9 +40,8 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
 
   def parse(<<"put ", rest::binary>>) do
     with {:ok, path, rest} <- parse_put_path(rest),
-         {:ok, length, rest} <- parse_put_length(rest),
-         {:ok, data, rest} <- parse_put_data(length, [], rest) do
-      {:ok, %Put{path: path, data: data}, rest}
+         {:ok, length, rest} <- parse_put_length(rest) do
+      {:ok, %Put{path: path, length: length}, rest}
     end
   end
 
@@ -107,11 +106,11 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
-  defp parse_put_data(0, data_acc, rest), do: {:ok, IO.iodata_to_binary(data_acc), rest}
-  defp parse_put_data(_n, _data_acc, ""), do: :incomplete
+  # defp parse_put_data(0, data_acc, rest), do: {:ok, IO.iodata_to_binary(data_acc), rest}
+  # defp parse_put_data(_n, _data_acc, ""), do: :incomplete
 
-  defp parse_put_data(n, data_acc, <<ch::binary-1, rest::binary>>),
-    do: parse_put_data(n - 1, [data_acc | [ch]], rest)
+  # defp parse_put_data(n, data_acc, <<ch::binary-1, rest::binary>>),
+  #   do: parse_put_data(n - 1, [data_acc | [ch]], rest)
 
   @spec parse_path(binary()) :: {:ok, path(), binary()} | :incomplete | error()
   defp parse_path(value) do

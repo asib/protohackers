@@ -3,25 +3,13 @@ defmodule FileSystemTest do
 
   alias Protohackers.VoraciousCodeStorage.FileSystem
 
-  # setup do
-  #   start_supervised!({FileSystem, [files: %{}]})
-  #   :ok
-  # end
+  setup do
+    start_supervised!({FileSystem, [files: %{}]})
+    :ok
+  end
 
   test "can list files" do
-    start_supervised!(
-      {FileSystem,
-       [
-         files: %{
-           "/" => [
-             %FileSystem.File{
-               name: "bla.txt",
-               revisions: %{1 => "contents"}
-             }
-           ]
-         }
-       ]}
-    )
+    FileSystem.put("/bla.txt", "contents")
 
     assert FileSystem.list("/") == [
              %FileSystem.File{

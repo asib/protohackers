@@ -80,6 +80,11 @@ defmodule FileSystemTest do
     assert FileSystem.get("/a/b/c") == {:error, :no_such_file}
   end
 
+  test "when directory exists but file does not then get returns no such file error" do
+    FileSystem.put("/a", "a")
+    assert FileSystem.get("/b") == {:error, :no_such_file}
+  end
+
   test "can get file name and directory path from full path" do
     assert FileSystem.file_name_and_directory("/a") == {"/", "a"}
     assert FileSystem.file_name_and_directory("/a/b/c") == {"/a/b", "c"}

@@ -2,6 +2,7 @@ defmodule CommandParserTest do
   use ExUnit.Case, async: true
 
   import Protohackers.VoraciousCodeStorage.CommandParser
+  alias Protohackers.VoraciousCodeStorage.CommandParser
 
   @help_cases [
     {"help", "can parse help"},
@@ -14,17 +15,48 @@ defmodule CommandParserTest do
     end
   end
 
-  @list_cases [
-    {"list /", "/", "can parse list of root"},
-    {"list /bla.txt", "/bla.txt", "can parse list of file in root"},
-    {"list /bla-testing_new.txt", "/bla-testing_new.txt", "can parse list of file with hyphen"},
-    {"list /.", "/.", "can parse list of ."},
-    {"list /     ", "/", "can parse list of root with trailing whitespace"}
+  @commands_with_path [{:list, CommandParser.List}, {:get, CommandParser.Get}]
+  @command_with_path_cases [
+    {"/", "/", "can parse root"},
+    {"/bla.txt", "/bla.txt", "can parse file in root"},
+    {"/bla-testing_new.txt", "/bla-testing_new.txt", "can parse file with hyphen"},
+    {"/.", "/.", "can parse /."},
+    {"/     ", "/", "can parse root with trailing whitespace"}
   ]
 
-  for {input, expected, case_name} <- @list_cases do
+  for {command, struct_name} <- @commands_with_path,
+      {input, expected, case_name} <- @command_with_path_cases do
+    test "#{Atom.to_string(command)}: #{case_name}" do
+      assert parse("#{Atom.to_string(unquote(command))} #{unquote(input)}\n") ==
+               {:ok, %unquote(struct_name){path: unquote(expected)}, ""}
+    end
+  end
+
+  @put_cases [
+    {"/bla.txt 5\nhello", {"/bla.txt", "hello"}, "can parse put"},
+    {"/test 2b\na\n", {"/test", "a\n"}, "ignore characters after length but before newline"},
+    {"/test bla\n", {"/test", ""}, "(1): non-numeric length is parsed as 0"},
+    {"/test _\n", {"/test", ""}, "(2): non-numeric length is parsed as 0"}
+  ]
+
+  for {input, {path, data}, case_name} <- @put_cases do
     test case_name do
-      assert parse("#{unquote(input)}\n") == {:ok, {:list, unquote(expected)}, ""}
+      assert parse("put #{unquote(input)}") ==
+               {:ok, %CommandParser.Put{path: unquote(path), data: unquote(data)}, ""}
+    end
+  end
+
+  test "can't have more than one space after file path" do
+    assert parse("put /test       $$$$$\n") == {:error, :invalid_length}
+  end
+
+  @incomplete_cases [
+    "help"
+  ]
+
+  for input <- @incomplete_cases do
+    test "incomplete: #{inspect(input)}" do
+      assert parse(unquote(input)) == :incomplete
     end
   end
 end

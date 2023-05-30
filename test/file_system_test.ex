@@ -19,17 +19,17 @@ defmodule FileSystemTest do
            ]
   end
 
-  # test "can update file" do
-  #   FileSystem.put("/a", "initial")
-  #   FileSystem.put("/a", "new")
+  test "can update file" do
+    FileSystem.put("/a", "initial")
+    FileSystem.put("/a", "new")
 
-  #   assert FileSystem.list("/") == [
-  #            %FileSystem.File{
-  #              name: "a",
-  #              revisions: %{1 => "initial", 2 => "new"}
-  #            }
-  #          ]
-  # end
+    assert FileSystem.list("/") == [
+             %FileSystem.File{
+               name: "a",
+               revisions: %{1 => "initial", 2 => "new"}
+             }
+           ]
+  end
 
   test "update_file with new revisions adds initial revision" do
     assert FileSystem.update_file(%FileSystem.File{name: "a", revisions: %{}}, "one") ==

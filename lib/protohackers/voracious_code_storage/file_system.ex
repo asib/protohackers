@@ -14,6 +14,13 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     end
   end
 
+  defmodule FileListing do
+    typedstruct do
+      field(:name, String.t(), enforce: true)
+      field(:revision, FileSystem.revision(), enforce: true)
+    end
+  end
+
   @type files_map() :: %{dir_path() => list(File.t())}
 
   typedstruct do
@@ -33,8 +40,14 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
   def handle_call({:list, path}, _from, %{files: files} = state) do
     files_in_path =
       case Map.fetch(files, path) do
-        {:ok, files_in_path} -> files_in_path
-        :error -> []
+        {:ok, files_in_path} ->
+          files_in_path
+          |> Enum.map(fn file ->
+            %FileListing{name: file.name, revision: file.revisions |> Map.keys() |> Enum.max()}
+          end)
+
+        :error ->
+          []
       end
 
     {:reply, files_in_path, state}
@@ -84,7 +97,7 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     %File{file | revisions: Map.put(revisions, new_revision, new_data)}
   end
 
-  @spec list(String.t()) :: list(File.t())
+  @spec list(String.t()) :: list(FileListing.t())
   def list(path) do
     GenServer.call(__MODULE__, {:list, path})
   end

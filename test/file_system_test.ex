@@ -3,6 +3,11 @@ defmodule FileSystemTest do
 
   alias Protohackers.VoraciousCodeStorage.FileSystem
 
+  alias Protohackers.VoraciousCodeStorage.FileSystem.{
+    File,
+    FileListing
+  }
+
   setup do
     start_supervised!({FileSystem, [files: %{}]})
     :ok
@@ -12,9 +17,9 @@ defmodule FileSystemTest do
     FileSystem.put("/bla.txt", "contents")
 
     assert FileSystem.list("/") == [
-             %FileSystem.File{
+             %FileListing{
                name: "bla.txt",
-               revisions: %{1 => "contents"}
+               revision: 1
              }
            ]
   end
@@ -24,17 +29,17 @@ defmodule FileSystemTest do
     FileSystem.put("/a/b", "b")
 
     assert FileSystem.list("/") == [
-             %FileSystem.File{name: "a", revisions: %{1 => "a"}}
+             %FileListing{name: "a", revision: 1}
            ]
 
     assert FileSystem.list("/a") == [
-             %FileSystem.File{name: "b", revisions: %{1 => "b"}}
+             %FileListing{name: "b", revision: 1}
            ]
 
     FileSystem.put("/a/b", "b2")
 
     assert FileSystem.list("/a") == [
-             %FileSystem.File{name: "b", revisions: %{1 => "b", 2 => "b2"}}
+             %FileListing{name: "b", revision: 2}
            ]
   end
 
@@ -43,9 +48,9 @@ defmodule FileSystemTest do
     FileSystem.put("/a", "new")
 
     assert FileSystem.list("/") == [
-             %FileSystem.File{
+             %FileListing{
                name: "a",
-               revisions: %{1 => "initial", 2 => "new"}
+               revision: 2
              }
            ]
   end

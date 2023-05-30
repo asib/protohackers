@@ -55,19 +55,21 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
 
   @impl true
   def handle_call({:put, path, data}, _from, %{files_by_path: files_by_path} = state) do
-    {dir_path, file_name} = file_name_and_directory(path)
+    with {:ok, dir_path, file_name} <- get_legal_file_name_and_directory(path) do
+      # Initialise directory if not already done.
+      files_by_path = Map.put_new(files_by_path, dir_path, [])
 
-    # Initialise directory if not already done.
-    files_by_path = Map.put_new(files_by_path, dir_path, [])
+      # Update directory
+      {new_directory_files, file_revision} =
+        update_directory(Map.fetch!(files_by_path, dir_path), file_name, data)
 
-    # Update directory
-    {new_directory_files, file_revision} =
-      update_directory(Map.fetch!(files_by_path, dir_path), file_name, data)
+      # Update state
+      new_files_by_path = Map.put(files_by_path, dir_path, new_directory_files)
 
-    # Update state
-    new_files_by_path = Map.put(files_by_path, dir_path, new_directory_files)
-
-    {:reply, {:ok, file_revision}, %{state | files_by_path: new_files_by_path}}
+      {:reply, {:ok, file_revision}, %{state | files_by_path: new_files_by_path}}
+    else
+      err -> {:reply, err, state}
+    end
   end
 
   @impl true
@@ -82,7 +84,7 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     {:reply, result, state}
   end
 
-  defp get_legal_file_name_and_directory(path) do
+  def get_legal_file_name_and_directory(path) do
     if not String.starts_with?(path, "/") or String.ends_with?(path, "/") do
       {:error, :illegal_file_name}
     else

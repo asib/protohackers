@@ -19,6 +19,25 @@ defmodule FileSystemTest do
            ]
   end
 
+  test "files in other directories are not listed" do
+    FileSystem.put("/a", "a")
+    FileSystem.put("/a/b", "b")
+
+    assert FileSystem.list("/") == [
+             %FileSystem.File{name: "a", revisions: %{1 => "a"}}
+           ]
+
+    assert FileSystem.list("/a") == [
+             %FileSystem.File{name: "b", revisions: %{1 => "b"}}
+           ]
+
+    FileSystem.put("/a/b", "b2")
+
+    assert FileSystem.list("/a") == [
+             %FileSystem.File{name: "b", revisions: %{1 => "b", 2 => "b2"}}
+           ]
+  end
+
   test "can update file" do
     FileSystem.put("/a", "initial")
     FileSystem.put("/a", "new")

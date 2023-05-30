@@ -67,13 +67,13 @@ defmodule FileSystemTest do
 
   test "can get file without specifying revision" do
     FileSystem.put("/a", "a")
-    assert FileSystem.get("/a") == "a"
+    assert FileSystem.get("/a") == {:ok, "a"}
   end
 
   test "can get file with specified revision" do
     FileSystem.put("/a", "a")
     FileSystem.put("/a", "b")
-    assert FileSystem.get("/a", 1) == "a"
+    assert FileSystem.get("/a", 1) == {:ok, "a"}
   end
 
   test "can get file name and directory path from full path" do

@@ -60,19 +60,56 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     # Initialise directory if not already done.
     files_by_path = Map.put_new(files_by_path, dir_path, [])
 
+    # Update directory
     {new_directory_files, file_revision} =
       update_directory(Map.fetch!(files_by_path, dir_path), file_name, data)
 
+    # Update state
     new_files_by_path = Map.put(files_by_path, dir_path, new_directory_files)
-    # new_files =
-    #   Map.update(
-    #     files,
-    #     dir_path,
-    #     [fresh_file(file_name, data)],
-    #     &update_directory(&1, file_name, data)
-    #   )
 
     {:reply, {:ok, file_revision}, %{state | files_by_path: new_files_by_path}}
+  end
+
+  @impl true
+  def handle_call({:get, path, revision}, _from, %{files_by_path: files_by_path} = state) do
+    {dir_path, file_name} = file_name_and_directory(path)
+
+    result =
+      with {:ok, files_in_directory} <- files_in_directory(files_by_path, dir_path),
+           {:found_file, file} <- find_file_in_directory(files_in_directory, file_name) do
+        get_file_data_for_revision(file, revision)
+      end
+
+    {:reply, result, state}
+  end
+
+  defp files_in_directory(files_by_path, dir_path) do
+    case Map.fetch(files_by_path, dir_path) do
+      :error -> {:error, :no_such_file}
+      {:ok, files_in_directory} -> {:ok, files_in_directory}
+    end
+  end
+
+  defp find_file_in_directory(files_in_directory, file_name) do
+    case Enum.find(files_in_directory, fn file -> file.name == file_name end) do
+      nil -> {:error, :no_such_file}
+      file -> {:found_file, file}
+    end
+  end
+
+  defp get_file_data_for_revision(file, :latest) do
+    {:ok,
+     file.revisions
+     |> Map.keys()
+     |> Enum.max()
+     |> then(&Map.get(file.revisions, &1))}
+  end
+
+  defp get_file_data_for_revision(file, revision) do
+    case Map.fetch(file.revisions, revision) do
+      :error -> {:error, :no_such_revision}
+      {:ok, data} -> {:ok, data}
+    end
   end
 
   @spec update_directory(list(File.t()), String.t(), binary()) :: {list(File.t()), revision()}
@@ -121,5 +158,8 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     GenServer.call(__MODULE__, {:put, path, data})
   end
 
-  # @spec get(String.t(), revision() | :latest) :: {:ok, String.t()}
+  @spec get(String.t(), revision() | :latest) :: {:ok, String.t()} | {:error, atom()}
+  def get(path, revision \\ :latest) do
+    GenServer.call(__MODULE__, {:get, path, revision})
+  end
 end

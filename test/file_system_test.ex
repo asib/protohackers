@@ -9,12 +9,12 @@ defmodule FileSystemTest do
   }
 
   setup do
-    start_supervised!({FileSystem, [files: %{}]})
+    start_supervised!({FileSystem, [files_by_path: %{}]})
     :ok
   end
 
   test "can list files" do
-    FileSystem.put("/bla.txt", "contents")
+    assert FileSystem.put("/bla.txt", "contents") == {:ok, 1}
 
     assert FileSystem.list("/") == [
              %FileListing{
@@ -25,8 +25,8 @@ defmodule FileSystemTest do
   end
 
   test "files in other directories are not listed" do
-    FileSystem.put("/a", "a")
-    FileSystem.put("/a/b", "b")
+    assert FileSystem.put("/a", "a") == {:ok, 1}
+    assert FileSystem.put("/a/b", "b") == {:ok, 1}
 
     assert FileSystem.list("/") == [
              %FileListing{name: "a", revision: 1}
@@ -44,8 +44,8 @@ defmodule FileSystemTest do
   end
 
   test "can update file" do
-    FileSystem.put("/a", "initial")
-    FileSystem.put("/a", "new")
+    assert FileSystem.put("/a", "initial") == {:ok, 1}
+    assert FileSystem.put("/a", "new") == {:ok, 2}
 
     assert FileSystem.list("/") == [
              %FileListing{
@@ -57,11 +57,27 @@ defmodule FileSystemTest do
 
   test "update_file with new revisions adds initial revision" do
     assert FileSystem.update_file(%FileSystem.File{name: "a", revisions: %{}}, "one") ==
-             %FileSystem.File{name: "a", revisions: %{1 => "one"}}
+             {%FileSystem.File{name: "a", revisions: %{1 => "one"}}, 1}
   end
 
   test "update_file adds new revision" do
     assert FileSystem.update_file(%FileSystem.File{name: "a", revisions: %{1 => "one"}}, "two") ==
-             %FileSystem.File{name: "a", revisions: %{1 => "one", 2 => "two"}}
+             {%FileSystem.File{name: "a", revisions: %{1 => "one", 2 => "two"}}, 2}
+  end
+
+  test "can get file without specifying revision" do
+    FileSystem.put("/a", "a")
+    assert FileSystem.get("/a") == "a"
+  end
+
+  test "can get file with specified revision" do
+    FileSystem.put("/a", "a")
+    FileSystem.put("/a", "b")
+    assert FileSystem.get("/a", 1) == "a"
+  end
+
+  test "can get file name and directory path from full path" do
+    assert FileSystem.file_name_and_directory("/a") == {"/", "a"}
+    assert FileSystem.file_name_and_directory("/a/b/c") == {"/a/b", "c"}
   end
 end

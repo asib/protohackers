@@ -24,22 +24,22 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
   @type files_map() :: %{dir_path() => list(File.t())}
 
   typedstruct do
-    field(:files, files_map(), enforce: true)
+    field(:files_by_path, files_map(), enforce: true)
   end
 
-  def start_link(opts \\ [files: %{}]) do
+  def start_link(opts \\ [files_by_path: %{}]) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
-  def init(files: files) do
-    {:ok, %__MODULE__{files: files}}
+  def init(files_by_path: files_by_path) do
+    {:ok, %__MODULE__{files_by_path: files_by_path}}
   end
 
   @impl true
-  def handle_call({:list, path}, _from, %{files: files} = state) do
+  def handle_call({:list, path}, _from, %{files_by_path: files_by_path} = state) do
     files_in_path =
-      case Map.fetch(files, path) do
+      case Map.fetch(files_by_path, path) do
         {:ok, files_in_path} ->
           files_in_path
           |> Enum.map(fn file ->
@@ -54,7 +54,53 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
   end
 
   @impl true
-  def handle_call({:put, path, data}, _from, %{files: files} = state) do
+  def handle_call({:put, path, data}, _from, %{files_by_path: files_by_path} = state) do
+    {dir_path, file_name} = file_name_and_directory(path)
+
+    # Initialise directory if not already done.
+    files_by_path = Map.put_new(files_by_path, dir_path, [])
+
+    {new_directory_files, file_revision} =
+      update_directory(Map.fetch!(files_by_path, dir_path), file_name, data)
+
+    new_files_by_path = Map.put(files_by_path, dir_path, new_directory_files)
+    # new_files =
+    #   Map.update(
+    #     files,
+    #     dir_path,
+    #     [fresh_file(file_name, data)],
+    #     &update_directory(&1, file_name, data)
+    #   )
+
+    {:reply, {:ok, file_revision}, %{state | files_by_path: new_files_by_path}}
+  end
+
+  @spec update_directory(list(File.t()), String.t(), binary()) :: {list(File.t()), revision()}
+  defp update_directory(existing_files, file_name, data) do
+    case existing_files |> Enum.find_index(fn file -> file.name == file_name end) do
+      nil ->
+        {new_file, new_revision} = update_file(%File{name: file_name, revisions: %{}}, data)
+        {[new_file | existing_files], new_revision}
+
+      index ->
+        file = Enum.fetch!(existing_files, index)
+        {new_file, new_revision} = update_file(file, data)
+        {List.replace_at(existing_files, index, new_file), new_revision}
+    end
+  end
+
+  @spec update_file(File.t(), binary()) :: {File.t(), revision()}
+  def update_file(%File{revisions: revisions} = file, new_data) do
+    new_revision =
+      (revisions
+       |> Map.keys()
+       |> Enum.max(fn -> 0 end)) + 1
+
+    {%File{file | revisions: Map.put(revisions, new_revision, new_data)}, new_revision}
+  end
+
+  @spec file_name_and_directory(String.t()) :: {dir_path(), String.t()}
+  def file_name_and_directory(path) do
     {file_name, dir_parts} =
       path
       |> String.split("/", trim: true)
@@ -62,39 +108,7 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
 
     dir_path = "/" <> Enum.join(dir_parts, "/")
 
-    new_files =
-      Map.update(
-        files,
-        dir_path,
-        [fresh_file(file_name, data)],
-        &update_directory(&1, file_name, data)
-      )
-
-    {:reply, 1, %{state | files: new_files}}
-  end
-
-  @spec fresh_file(String.t(), binary()) :: File.t()
-  defp fresh_file(name, data), do: %File{name: name, revisions: %{1 => data}}
-
-  @spec update_directory(list(File.t()), String.t(), binary()) :: list(File.t())
-  defp update_directory(existing_files, file_name, data) do
-    case existing_files |> Enum.find_index(fn file -> file.name == file_name end) do
-      nil ->
-        [update_file(%File{name: file_name, revisions: %{}}, data) | existing_files]
-
-      index ->
-        List.update_at(existing_files, index, &update_file(&1, data))
-    end
-  end
-
-  @spec update_file(File.t(), binary()) :: File.t()
-  def update_file(%File{revisions: revisions} = file, new_data) do
-    new_revision =
-      (revisions
-       |> Map.keys()
-       |> Enum.max(fn -> 0 end)) + 1
-
-    %File{file | revisions: Map.put(revisions, new_revision, new_data)}
+    {dir_path, file_name}
   end
 
   @spec list(String.t()) :: list(FileListing.t())
@@ -106,4 +120,6 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
   def put(path, data) do
     GenServer.call(__MODULE__, {:put, path, data})
   end
+
+  # @spec get(String.t(), revision() | :latest) :: {:ok, String.t()}
 end

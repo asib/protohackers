@@ -85,6 +85,13 @@ defmodule FileSystemTest do
     assert FileSystem.get("/b") == {:error, :no_such_file}
   end
 
+  test "when revision doesn't exist then get returns no such revision error" do
+    FileSystem.put("/a", "a")
+    assert FileSystem.get("/a") == {:ok, "a"}
+    assert FileSystem.get("/a", 1) == {:ok, "a"}
+    assert FileSystem.get("/a", 2) == {:error, :no_such_revision}
+  end
+
   test "can get file name and directory path from full path" do
     assert FileSystem.file_name_and_directory("/a") == {"/", "a"}
     assert FileSystem.file_name_and_directory("/a/b/c") == {"/a/b", "c"}

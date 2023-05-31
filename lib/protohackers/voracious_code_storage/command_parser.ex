@@ -1,6 +1,26 @@
 defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   require Logger
 
+  defmacro remove_newline_and_match_parts(data, pattern) do
+    quote do
+      with {:ok, new_data} <- split_newline(unquote(data)) do
+        space_split_list = String.split(new_data, " ", trim: true)
+
+        case space_split_list do
+          unquote(pattern) = ret -> {:ok, ret}
+          _ -> {:error, :pattern_match_failed}
+        end
+      end
+    end
+  end
+
+  def split_newline(data) do
+    case String.split(data, "\n") do
+      [data, ""] -> {:ok, data}
+      _ -> {:error, :no_newline}
+    end
+  end
+
   defmodule List do
     use TypedStruct
 
@@ -37,15 +57,26 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
-  def parse(<<"list ", rest::binary>>) do
-    with {:ok, path, rest} <- parse_path(rest) do
-      {:ok, %List{path: path}, rest}
+  def parse(<<"list ", _rest::binary>> = data) do
+    with {:ok, ["list", dir_path]} <- remove_newline_and_match_parts(data, ["list", _]),
+         true <- is_path?(dir_path) do
+      {:ok, %List{path: dir_path}}
+    else
+      {:error, :pattern_match_failed} -> {:error, {:usage, :list}}
+      false -> {:error, :illegal_dir_name}
+      {:error, :no_newline} -> :incomplete
     end
   end
 
-  def parse(<<"get ", rest::binary>>) do
-    with {:ok, path, rest} <- parse_path(rest) do
-      {:ok, %Get{path: path}, rest}
+  def parse(<<"get ", _rest::binary>> = data) do
+    with {:ok, ["get", file_path]} <- remove_newline_and_match_parts(data, ["get", _]),
+         true <- is_path?(file_path),
+         true <- !String.ends_with?(file_path, "/") do
+      {:ok, %Get{path: file_path}}
+    else
+      {:error, :pattern_match_failed} -> {:error, {:usage, :get}}
+      false -> {:error, :illegal_file_name}
+      {:error, :no_newline} -> :incomplete
     end
   end
 
@@ -59,26 +90,6 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   def parse(data) do
     with {:ok, rest_of_line, _rest} <- split_on_newline(data) do
       {:error, {:illegal_method, rest_of_line |> String.split(" ") |> Elixir.List.first()}}
-    end
-  end
-
-  defmacro remove_newline_and_match_parts(data, pattern) do
-    quote do
-      with {:ok, new_data} <- split_newline(unquote(data)) do
-        space_split_list = String.split(new_data, " ")
-
-        case space_split_list do
-          unquote(pattern) = ret -> {:ok, ret}
-          _ -> {:error, :pattern_match_failed}
-        end
-      end
-    end
-  end
-
-  def split_newline(data) do
-    case String.split(data, "\n") do
-      [data, ""] -> {:ok, data}
-      _ -> {:error, :no_newline}
     end
   end
 

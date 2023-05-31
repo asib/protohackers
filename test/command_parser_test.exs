@@ -17,18 +17,16 @@ defmodule CommandParserTest do
 
   @commands_with_path [{:list, CommandParser.List}, {:get, CommandParser.Get}]
   @command_with_path_success_cases [
-    {"/", "/", "can parse root"},
     {"/bla.txt", "/bla.txt", "can parse file in root"},
     {"/bla-testing_new.txt", "/bla-testing_new.txt", "can parse file with hyphen"},
-    {"/.", "/.", "can parse /."},
-    {"/     ", "/", "can parse root with trailing whitespace"}
+    {"/.", "/.", "can parse /."}
   ]
 
   for {command, struct_name} <- @commands_with_path,
       {input, expected, case_name} <- @command_with_path_success_cases do
     test "#{Atom.to_string(command)}: #{case_name}" do
       assert parse("#{Atom.to_string(unquote(command))} #{unquote(input)}\n") ==
-               {:ok, %unquote(struct_name){path: unquote(expected)}, ""}
+               {:ok, %unquote(struct_name){path: unquote(expected)}}
     end
   end
 
@@ -46,6 +44,40 @@ defmodule CommandParserTest do
     end
   end
 
+  @incomplete_cases [
+    "help",
+    "get /bla.txt",
+    "list ",
+    "put /bla.txt 15",
+    "put /bla.txt ddfkdfd"
+  ]
+
+  for input <- @incomplete_cases do
+    test "incomplete: #{inspect(input)}" do
+      assert parse(unquote(input)) == :incomplete
+    end
+  end
+
+  test "list: can parse root" do
+    assert parse("list /\n") == {:ok, %CommandParser.List{path: "/"}}
+    assert parse("list /           \n") == {:ok, %CommandParser.List{path: "/"}}
+  end
+
+  test "list: missing newline" do
+    assert parse("list ") == :incomplete
+    assert parse("list /") == :incomplete
+  end
+
+  test "list: illegal usage" do
+    assert parse("list / abc\n") == {:error, {:usage, :list}}
+    assert parse("list a b c\n") == {:error, {:usage, :list}}
+  end
+
+  test "list: illegal dir name" do
+    assert parse("list abc\n") == {:error, :illegal_dir_name}
+    assert parse("list /$^%£&£@\n") == {:error, :illegal_dir_name}
+  end
+
   test "can't have more than one space after file path" do
     assert parse("put /test       $$$$$\n") == {:error, :invalid_length}
   end
@@ -56,9 +88,10 @@ defmodule CommandParserTest do
   end
 
   test "remove_newline_and_match_parts" do
-    val = "list /\n"
+    assert CommandParser.remove_newline_and_match_parts("list /\n", ["list", "/"]) ==
+             {:ok, ["list", "/"]}
 
-    assert CommandParser.remove_newline_and_match_parts(val, ["list", "/"]) ==
+    assert CommandParser.remove_newline_and_match_parts("list /     \n", ["list", _]) ==
              {:ok, ["list", "/"]}
 
     assert CommandParser.remove_newline_and_match_parts(
@@ -75,27 +108,9 @@ defmodule CommandParserTest do
            ) == {:ok, ["put", "a", "b", "c", "d", "e", "f"]}
   end
 
-  # test "illegal usage of list" do
-  #   assert parse("list / abc\n") == {:error, {:illegal_usage, :list}}
-  # end
-
   # test "can parse get with revision" do
   #   assert parse("get /a 1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
   #   assert parse("get /a r1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
   #   assert parse("get /a 1rrr\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
   # end
-
-  @incomplete_cases [
-    "help",
-    "get /bla.txt",
-    "list ",
-    "put /bla.txt 15",
-    "put /bla.txt ddfkdfd"
-  ]
-
-  for input <- @incomplete_cases do
-    test "incomplete: #{inspect(input)}" do
-      assert parse(unquote(input)) == :incomplete
-    end
-  end
 end

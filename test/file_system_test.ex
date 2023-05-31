@@ -24,6 +24,27 @@ defmodule FileSystemTest do
            ]
   end
 
+  test "list returns files in sorted order" do
+    FileSystem.put("/test.txt", "a")
+    FileSystem.put("/test2.txt", "a")
+    FileSystem.put("/test3.txt", "a")
+
+    assert FileSystem.list("/") == [
+             %FileListing{
+               name: "test.txt",
+               revision: 1
+             },
+             %FileListing{
+               name: "test2.txt",
+               revision: 1
+             },
+             %FileListing{
+               name: "test3.txt",
+               revision: 1
+             }
+           ]
+  end
+
   test "files in other directories are not listed" do
     assert FileSystem.put("/a", "a") == {:ok, 1}
     assert FileSystem.put("/a/b", "b") == {:ok, 1}

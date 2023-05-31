@@ -42,6 +42,7 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
       case Map.fetch(files_by_path, path) do
         {:ok, files_in_path} ->
           files_in_path
+          |> Enum.sort_by(fn file -> file.name end)
           |> Enum.map(fn file ->
             %FileListing{name: file.name, revision: file.revisions |> Map.keys() |> Enum.max()}
           end)

@@ -32,27 +32,97 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
   def handle_info({:tcp, _socket, data}, %{buffer: buffer} = state) do
     case CommandParser.parse(data) do
-      :incomplete ->
+      {:error, :no_newline} ->
         Logger.error("got incomplete message")
-        {:noreply, %{state | buffer: buffer <> data}}
+        noreply(%{state | buffer: buffer <> data})
 
       {:error, {:illegal_method, method}} ->
         Logger.info("illegal method: #{method}")
-        :gen_tcp.send(state.socket, "ERR illegal method: #{method}\n")
+        senderr(state, "illegal method: #{method}\n")
         {:stop, :normal, state}
 
-      {:ok, %CommandParser.List{path: path}, ""} ->
+      {:error, {:usage, command}} ->
+        Logger.info("usage: #{usage(command)}\n")
+        senderr(state, "usage: #{usage(command)}\n")
+        noreply(state)
+
+      {:error, :illegal_dir_name} ->
+        senderr(state, "illegal dir name")
+        noreply(state)
+
+      {:error, :illegal_file_name} ->
+        senderr(state, "illegal file name")
+        noreply(state)
+
+      {:error, :invalid_revision} ->
+        senderr(state, "no such revision")
+        noreply(state)
+
+      {:ok, :help} ->
+        sendmsg(state, "OK usage: HELP|GET|PUT|LIST")
+        ready(state)
+
+      {:ok, %CommandParser.List{path: path}} ->
         files_in_path = FileSystem.list(path)
-        :gen_tcp.send(state.socket, "OK #{Enum.count(files_in_path)}\n")
+        sendmsg(state, "OK #{Enum.count(files_in_path)}\n")
 
         Enum.each(files_in_path, fn file_listing ->
-          :gen_tcp.send(state.socket, "#{file_listing.name} r#{file_listing.revision}\n")
+          sendmsg(state, "#{file_listing.name} r#{file_listing.revision}\n")
         end)
 
-        {:noreply, state, {:continue, :ready}}
+        ready(state)
 
-      {:ok, %CommandParser.Get{path: path}, ""} ->
-        contents = FileSystem.get(path)
+      {:ok, %CommandParser.Get{path: path, revision: revision}} ->
+        case FileSystem.get(path, revision) do
+          {:error, :no_such_file} ->
+            senderr(state, "no such file")
+
+          {:ok, file_data} ->
+            sendmsg(state, "OK #{byte_size(file_data)}")
+            # Using raw send to avoid appending newline.
+            :gen_tcp.send(state.socket, file_data)
+        end
+
+        ready(state)
+
+      {:ok, %CommandParser.Put{path: path, length: length}} ->
+        :inet.setopts(state.socket, active: false, packet: :raw)
+
+        case :gen_tcp.recv(state.socket, length) do
+          {:ok, file_data} ->
+            {:ok, file_revision} = FileSystem.put(path, file_data)
+            sendmsg(state, "OK r#{file_revision}")
+
+            ready(state)
+
+          err ->
+            Logger.error(inspect(err))
+        end
+
+        :inet.setopts(state.socket, active: true, packet: :line)
+        ready(state)
     end
   end
+
+  defp sendmsg(state, data) do
+    :gen_tcp.send(state.socket, "#{data}\n")
+  end
+
+  defp senderr(state, err) do
+    sendmsg(state, "ERR #{err}")
+  end
+
+  defp ready(state) do
+    # :inet.setopts(state.socket, active: :once)
+    {:noreply, state, {:continue, :ready}}
+  end
+
+  defp noreply(state) do
+    # :inet.setopts(state.socket, active: :once)
+    {:noreply, state}
+  end
+
+  defp usage(:list), do: "LIST dir"
+  defp usage(:get), do: "GET file [revision]"
+  defp usage(:put), do: "PUT file length newline data"
 end

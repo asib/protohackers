@@ -53,7 +53,20 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   @type error() :: {:error, :invalid_path | :invalid_length | {:illegal_method, String.t()}}
   @type result() :: :help | List.t() | Get.t() | Put.t()
 
-  @spec parse(binary()) :: {:ok, result(), binary()} | :incomplete | error()
+  @spec parse(binary) ::
+          {:error,
+           :illegal_dir_name
+           | :illegal_file_name
+           | :invalid_length
+           | :invalid_revision
+           | :no_newline
+           | {:illegal_method, any}
+           | {:usage, :get | :list | :put}}
+          | {:ok,
+             :help
+             | List.t()
+             | Get.t()
+             | Put.t()}
   def parse(data) do
     with {:ok, data} <- split_newline(data) do
       parse_command(data)

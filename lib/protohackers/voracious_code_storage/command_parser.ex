@@ -45,40 +45,11 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
-  def parse(<<prefix::binary-3, rest::binary>> = all) do
-    case String.downcase(prefix, :ascii) do
-      "put" ->
-        parse("put" <> rest)
-
-      "get" ->
-        parse("get" <> rest)
-
-      prefix when prefix in ["lis", "hel"] ->
-        if byte_size(rest) > 0 do
-          <<command::binary-4, rest::binary>> = all
-
-          case String.downcase(command, :ascii) do
-            "list" ->
-              parse("list" <> rest)
-
-            "help" ->
-              parse("help" <> rest)
-
-            _ ->
-              :error
-          end
-        else
-          :incomplete
-        end
-
-      _ ->
-        {:error, :invalid_command}
+  def parse(data) do
+    with {:ok, rest_of_line, _rest} <- split_on_newline(data) do
+      {:error, {:illegal_method, rest_of_line |> String.split(" ") |> Elixir.List.first()}}
     end
   end
-
-  def parse(x) when byte_size(x) < 3, do: :incomplete
-  # Don't think this should be reachable.
-  def parse(_), do: {:error, :no_matches}
 
   defp parse_put_path(value) do
     with [path, rest] = String.split(value, " ", parts: 2),

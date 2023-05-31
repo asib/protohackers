@@ -50,6 +50,11 @@ defmodule CommandParserTest do
     assert parse("put /test       $$$$$\n") == {:error, :invalid_length}
   end
 
+  test "illegal method" do
+    assert parse("testing\n") == {:error, {:illegal_method, "testing"}}
+    assert parse("testing bla bla bla\n") == {:error, {:illegal_method, "testing"}}
+  end
+
   @incomplete_cases [
     "help",
     "get /bla.txt",

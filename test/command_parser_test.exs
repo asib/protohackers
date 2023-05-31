@@ -156,6 +156,10 @@ defmodule CommandParserTest do
   end
 
   test "parse case-insensitively" do
-    assert parse("LiSt /\n") == {:ok, %CommandParser.List{path: "/"}}
+    assert parse("LiSt /\n") == {:ok, %CommandParser.List{path: "/"}, ""}
+  end
+
+  test "returns rest of data" do
+    assert parse("help   \ntesting") == {:ok, :help, "testing"}
   end
 end

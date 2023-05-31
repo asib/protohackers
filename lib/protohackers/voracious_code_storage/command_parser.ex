@@ -14,7 +14,8 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
 
   defp split_newline(data) do
     case String.split(data, "\n") do
-      [data, ""] -> {:ok, data}
+      [_ | []] -> {:error, :no_newline}
+      [data | rest] -> {:ok, data, Enum.join(rest, "\n")}
       _ -> {:error, :no_newline}
     end
   end
@@ -68,7 +69,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
              | Get.t()
              | Put.t()}
   def parse(data) do
-    with {:ok, data} <- split_newline(data) do
+    with {:ok, data, rest} <- split_newline(data) do
       case split_command_parts(data) |> Elixir.List.first(nil) do
         nil ->
           {:error, {:illegal_method, ""}}
@@ -76,7 +77,10 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
         cmd ->
           cmd = String.downcase(cmd)
           rest_of_data = String.slice(data, String.length(cmd)..-1)
-          parse_command(cmd <> rest_of_data)
+
+          with {:ok, result} <- parse_command(cmd <> rest_of_data) do
+            {:ok, result, rest}
+          end
       end
     end
   end

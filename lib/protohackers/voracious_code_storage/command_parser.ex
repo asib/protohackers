@@ -3,7 +3,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
 
   defmacro match_space_separated_parts(data, pattern) do
     quote do
-      space_split_list = unquote(data) |> String.trim_trailing() |> String.split(" ")
+      space_split_list = split_command_parts(unquote(data))
 
       case space_split_list do
         unquote(pattern) = ret -> {:ok, ret}
@@ -12,11 +12,15 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
-  def split_newline(data) do
+  defp split_newline(data) do
     case String.split(data, "\n") do
       [data, ""] -> {:ok, data}
       _ -> {:error, :no_newline}
     end
+  end
+
+  def split_command_parts(data) do
+    data |> String.trim_trailing() |> String.split(" ")
   end
 
   defmodule List do
@@ -32,6 +36,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
 
     typedstruct do
       field(:path, String.t(), enforce: true)
+      field(:revision, integer() | :latest, enforce: true)
     end
   end
 
@@ -70,13 +75,42 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   end
 
   def parse_command(<<"get", _rest::binary>> = data) do
-    with {:ok, ["get", file_path]} <- match_space_separated_parts(data, ["get", _]),
+    match_result =
+      case split_command_parts(data) do
+        ["get", file_path] ->
+          {:ok, file_path, :latest}
+
+        ["get", file_path, maybe_revision] ->
+          maybe_revision =
+            if String.starts_with?(maybe_revision, "r") do
+              String.slice(maybe_revision, 1..-1)
+            else
+              maybe_revision
+            end
+
+          case String.match?(maybe_revision, ~r/^[[:digit:]]+/) do
+            true ->
+              %{"revision" => revision} =
+                Regex.named_captures(~r/^(?<revision>[[:digit:]]+)/, maybe_revision)
+
+              {:ok, file_path, String.to_integer(revision)}
+
+            false ->
+              {:error, :invalid_revision}
+          end
+
+        _ ->
+          {:error, {:usage, :get}}
+      end
+
+    with {:ok, file_path, revision} <- match_result,
          true <- is_path?(file_path),
          true <- !String.ends_with?(file_path, "/") do
-      {:ok, %Get{path: file_path}}
+      {:ok, %Get{path: file_path, revision: revision}}
     else
       {:error, :pattern_match_failed} -> {:error, {:usage, :get}}
       false -> {:error, :illegal_file_name}
+      err -> err
     end
   end
 
@@ -85,7 +119,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
          true <- is_path?(path),
          true <- !String.ends_with?(path, "/"),
          {:ok, valid_length} <-
-           parse_valid_length(length) do
+           parse_valid_integer(length) do
       {:ok, %Put{path: path, length: valid_length}}
     else
       {:error, :pattern_match_failed} -> {:error, {:usage, :put}}
@@ -98,7 +132,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     {:error, {:illegal_method, data |> String.split(" ") |> Elixir.List.first()}}
   end
 
-  defp parse_valid_length(maybe_length) do
+  defp parse_valid_integer(maybe_length) do
     cond do
       String.match?(maybe_length, ~r/^[[:digit:]]+/) ->
         %{"length" => length} = Regex.named_captures(~r/^(?<length>[[:digit:]]+)/, maybe_length)

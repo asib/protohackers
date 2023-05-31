@@ -15,18 +15,43 @@ defmodule CommandParserTest do
     end
   end
 
-  @commands_with_path [{:list, CommandParser.List}, {:get, CommandParser.Get}]
-  @command_with_path_success_cases [
+  @list_success_cases [
     {"/bla.txt", "/bla.txt", "can parse file in root"},
     {"/bla-testing_new.txt", "/bla-testing_new.txt", "can parse file with hyphen"},
     {"/.", "/.", "can parse /."}
   ]
 
-  for {command, struct_name} <- @commands_with_path,
-      {input, expected, case_name} <- @command_with_path_success_cases do
-    test "#{Atom.to_string(command)}: #{case_name}" do
-      assert parse_command("#{Atom.to_string(unquote(command))} #{unquote(input)}") ==
-               {:ok, %unquote(struct_name){path: unquote(expected)}}
+  for {input, expected, case_name} <- @list_success_cases do
+    test "list: #{case_name}" do
+      assert parse_command("list #{unquote(input)}") ==
+               {:ok, %CommandParser.List{path: unquote(expected)}}
+    end
+  end
+
+  @get_success_cases [
+    {"/bla.txt", "/bla.txt", "can parse file in root"},
+    {"/bla-testing_new.txt", "/bla-testing_new.txt", "can parse file with hyphen"},
+    {"/.", "/.", "can parse /."}
+  ]
+
+  for {input, expected, case_name} <- @list_success_cases do
+    test "get: #{case_name}" do
+      assert parse_command("get #{unquote(input)}") ==
+               {:ok, %CommandParser.Get{path: unquote(expected), revision: :latest}}
+    end
+  end
+
+  @get_revision_success_cases [
+    "1",
+    "r1",
+    "1rrr",
+    "r1rrr"
+  ]
+
+  for input <- @get_revision_success_cases do
+    test "can parse get with revision: #{inspect(input)}" do
+      assert parse_command("get /a #{unquote(input)}") ==
+               {:ok, %CommandParser.Get{path: "/a", revision: 1}}
     end
   end
 
@@ -126,9 +151,7 @@ defmodule CommandParserTest do
            ) == {:ok, ["put", "a", "b", "c", "d", "e", "f"]}
   end
 
-  # test "can parse get with revision" do
-  #   assert parse_command("get /a 1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
-  #   assert parse_command("get /a r1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
-  #   assert parse_command("get /a 1rrr\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
-  # end
+  test "can parse invalid revision" do
+    assert parse_command("get /a rrrr1\n") == {:error, :invalid_revision}
+  end
 end

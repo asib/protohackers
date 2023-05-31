@@ -78,6 +78,13 @@ defmodule CommandParserTest do
     assert parse_command("get a b c") == {:error, {:usage, :get}}
   end
 
+  test "get: illegal file name" do
+    assert parse_command("get /") == {:error, :illegal_file_name}
+    assert parse_command("get /a/") == {:error, :illegal_file_name}
+    assert parse_command("get /%") == {:error, :illegal_file_name}
+    assert parse_command("get /\\") == {:error, :illegal_file_name}
+  end
+
   test "put: can't have more than one space after file path" do
     assert parse_command("put /test       $$$$$") == {:error, {:usage, :put}}
   end

@@ -104,6 +104,10 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
     end
   end
 
+  def handle_info({:tcp_closed, _socket}, state) do
+    {:stop, :normal, state}
+  end
+
   defp sendmsg(state, data) do
     :ok = :gen_tcp.send(state.socket, "#{data}\n")
   end

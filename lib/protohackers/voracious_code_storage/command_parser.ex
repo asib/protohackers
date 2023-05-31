@@ -112,15 +112,6 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
-  @spec split_on_newline(binary()) :: {:ok, binary(), binary()} | :incomplete
-  defp split_on_newline(command) do
-    with [command, rest] <- String.split(command, "\n", parts: 2) do
-      {:ok, String.trim_trailing(command), rest}
-    else
-      _ -> :incomplete
-    end
-  end
-
   @spec is_path?(binary()) :: boolean()
   defp is_path?(value) do
     value =~ ~r'^/[[:alnum:]_\-\./]*$'

@@ -1,24 +1,35 @@
 defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   require Logger
 
-  @type path :: binary()
-  @type result() :: :help | {:list, path()}
-  @type error() :: {:error, term()}
-
   defmodule List do
-    defstruct [:path]
+    use TypedStruct
+
+    typedstruct do
+      field(:path, String.t(), enforce: true)
+    end
   end
 
   defmodule Get do
-    defstruct [:path]
+    use TypedStruct
+
+    typedstruct do
+      field(:path, String.t(), enforce: true)
+    end
   end
 
   defmodule Put do
-    defstruct [:path, :length]
+    use TypedStruct
+
+    typedstruct do
+      field(:path, String.t(), enforce: true)
+      field(:length, integer(), enforce: true)
+    end
   end
 
+  @type path :: binary()
+  @type error() :: {:error, :invalid_path | :invalid_length | {:illegal_method, String.t()}}
+  @type result() :: :help | List.t() | Get.t() | Put.t()
   @spec parse(binary()) :: {:ok, result(), binary()} | :incomplete | error()
-  def parse(binary)
 
   def parse(<<"help", rest::binary>>) do
     with {:ok, _, rest} <- split_on_newline(rest) do
@@ -51,6 +62,26 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     end
   end
 
+  defmacro remove_newline_and_match_parts(data, pattern) do
+    quote do
+      with {:ok, new_data} <- split_newline(unquote(data)) do
+        space_split_list = String.split(new_data, " ")
+
+        case space_split_list do
+          unquote(pattern) = ret -> {:ok, ret}
+          _ -> {:error, :pattern_match_failed}
+        end
+      end
+    end
+  end
+
+  def split_newline(data) do
+    case String.split(data, "\n") do
+      [data, ""] -> {:ok, data}
+      _ -> {:error, :no_newline}
+    end
+  end
+
   defp parse_put_path(value) do
     with [path, rest] = String.split(value, " ", parts: 2),
          true <- is_path?(path) do
@@ -76,12 +107,6 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
       end
     end
   end
-
-  # defp parse_put_data(0, data_acc, rest), do: {:ok, IO.iodata_to_binary(data_acc), rest}
-  # defp parse_put_data(_n, _data_acc, ""), do: :incomplete
-
-  # defp parse_put_data(n, data_acc, <<ch::binary-1, rest::binary>>),
-  #   do: parse_put_data(n - 1, [data_acc | [ch]], rest)
 
   @spec parse_path(binary()) :: {:ok, path(), binary()} | :incomplete | error()
   defp parse_path(value) do

@@ -55,6 +55,36 @@ defmodule CommandParserTest do
     assert parse("testing bla bla bla\n") == {:error, {:illegal_method, "testing"}}
   end
 
+  test "remove_newline_and_match_parts" do
+    val = "list /\n"
+
+    assert CommandParser.remove_newline_and_match_parts(val, ["list", "/"]) ==
+             {:ok, ["list", "/"]}
+
+    assert CommandParser.remove_newline_and_match_parts(
+             "put a b c d e f\n",
+             [
+               "put",
+               _,
+               _,
+               _,
+               _,
+               _,
+               _
+             ]
+           ) == {:ok, ["put", "a", "b", "c", "d", "e", "f"]}
+  end
+
+  # test "illegal usage of list" do
+  #   assert parse("list / abc\n") == {:error, {:illegal_usage, :list}}
+  # end
+
+  # test "can parse get with revision" do
+  #   assert parse("get /a 1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
+  #   assert parse("get /a r1\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
+  #   assert parse("get /a 1rrr\n") == {:ok, %CommandParser.Get{path: "/a", revision: 1}}
+  # end
+
   @incomplete_cases [
     "help",
     "get /bla.txt",

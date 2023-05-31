@@ -27,6 +27,7 @@ defmodule Protohackers.TCPServer do
     if Kernel.function_exported?(client_handler, :applications, 0) do
       Kernel.apply(client_handler, :applications, [])
       |> Enum.each(fn app ->
+        Logger.info("starting #{inspect(app)}")
         DynamicSupervisor.start_child(client_supervisor_pid, app)
       end)
     end

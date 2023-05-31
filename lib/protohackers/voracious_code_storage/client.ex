@@ -25,7 +25,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   end
 
   def handle_continue(:ready, state) do
-    :ok = :gen_tcp.send(state.socket, "READY\n")
+    sendmsg(state, "READY")
 
     {:noreply, state}
   end
@@ -38,12 +38,12 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
       {:error, {:illegal_method, method}} ->
         Logger.info("illegal method: #{method}")
-        senderr(state, "illegal method: #{method}\n")
+        senderr(state, "illegal method: #{method}")
         {:stop, :normal, state}
 
       {:error, {:usage, command}} ->
         Logger.info("usage: #{usage(command)}\n")
-        senderr(state, "usage: #{usage(command)}\n")
+        senderr(state, "usage: #{usage(command)}")
         noreply(state)
 
       {:error, :illegal_dir_name} ->
@@ -56,7 +56,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
       {:error, :invalid_revision} ->
         senderr(state, "no such revision")
-        noreply(state)
+        ready(state)
 
       {:ok, :help} ->
         sendmsg(state, "OK usage: HELP|GET|PUT|LIST")
@@ -64,10 +64,10 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
       {:ok, %CommandParser.List{path: path}} ->
         files_in_path = FileSystem.list(path)
-        sendmsg(state, "OK #{Enum.count(files_in_path)}\n")
+        sendmsg(state, "OK #{Enum.count(files_in_path)}")
 
         Enum.each(files_in_path, fn file_listing ->
-          sendmsg(state, "#{file_listing.name} r#{file_listing.revision}\n")
+          sendmsg(state, "#{file_listing.name} r#{file_listing.revision}")
         end)
 
         ready(state)
@@ -105,7 +105,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   end
 
   defp sendmsg(state, data) do
-    :gen_tcp.send(state.socket, "#{data}\n")
+    :ok = :gen_tcp.send(state.socket, "#{data}\n")
   end
 
   defp senderr(state, err) do

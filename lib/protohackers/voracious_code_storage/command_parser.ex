@@ -1,15 +1,13 @@
 defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   require Logger
 
-  defmacro remove_newline_and_match_parts(data, pattern) do
+  defmacro match_space_separated_parts(data, pattern) do
     quote do
-      with {:ok, new_data} <- split_newline(unquote(data)) do
-        space_split_list = String.split(new_data, " ", trim: true)
+      space_split_list = unquote(data) |> String.trim_trailing() |> String.split(" ")
 
-        case space_split_list do
-          unquote(pattern) = ret -> {:ok, ret}
-          _ -> {:error, :pattern_match_failed}
-        end
+      case space_split_list do
+        unquote(pattern) = ret -> {:ok, ret}
+        _ -> {:error, :pattern_match_failed}
       end
     end
   end
@@ -49,84 +47,68 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   @type path :: binary()
   @type error() :: {:error, :invalid_path | :invalid_length | {:illegal_method, String.t()}}
   @type result() :: :help | List.t() | Get.t() | Put.t()
-  @spec parse(binary()) :: {:ok, result(), binary()} | :incomplete | error()
 
-  def parse(<<"help", rest::binary>>) do
-    with {:ok, _, rest} <- split_on_newline(rest) do
-      {:ok, :help, rest}
+  @spec parse(binary()) :: {:ok, result(), binary()} | :incomplete | error()
+  def parse(data) do
+    with {:ok, data} <- split_newline(data) do
+      parse_command(data)
     end
   end
 
-  def parse(<<"list ", _rest::binary>> = data) do
-    with {:ok, ["list", dir_path]} <- remove_newline_and_match_parts(data, ["list", _]),
+  def parse_command(<<"help", _rest::binary>>) do
+    {:ok, :help}
+  end
+
+  def parse_command(<<"list", _rest::binary>> = data) do
+    with {:ok, ["list", dir_path]} <- match_space_separated_parts(data, ["list", _]),
          true <- is_path?(dir_path) do
       {:ok, %List{path: dir_path}}
     else
       {:error, :pattern_match_failed} -> {:error, {:usage, :list}}
       false -> {:error, :illegal_dir_name}
-      {:error, :no_newline} -> :incomplete
     end
   end
 
-  def parse(<<"get ", _rest::binary>> = data) do
-    with {:ok, ["get", file_path]} <- remove_newline_and_match_parts(data, ["get", _]),
+  def parse_command(<<"get", _rest::binary>> = data) do
+    with {:ok, ["get", file_path]} <- match_space_separated_parts(data, ["get", _]),
          true <- is_path?(file_path),
          true <- !String.ends_with?(file_path, "/") do
       {:ok, %Get{path: file_path}}
     else
       {:error, :pattern_match_failed} -> {:error, {:usage, :get}}
       false -> {:error, :illegal_file_name}
-      {:error, :no_newline} -> :incomplete
     end
   end
 
-  def parse(<<"put ", rest::binary>>) do
-    with {:ok, path, rest} <- parse_put_path(rest),
-         {:ok, length, rest} <- parse_put_length(rest) do
-      {:ok, %Put{path: path, length: length}, rest}
-    end
-  end
-
-  def parse(data) do
-    with {:ok, rest_of_line, _rest} <- split_on_newline(data) do
-      {:error, {:illegal_method, rest_of_line |> String.split(" ") |> Elixir.List.first()}}
-    end
-  end
-
-  defp parse_put_path(value) do
-    with [path, rest] = String.split(value, " ", parts: 2),
-         true <- is_path?(path) do
-      {:ok, path, rest}
+  def parse_command(<<"put", _rest::binary>> = data) do
+    with {:ok, ["put", path, length]} <- match_space_separated_parts(data, ["put", _, _]),
+         true <- is_path?(path),
+         true <- !String.ends_with?(path, "/"),
+         {:ok, valid_length} <-
+           parse_valid_length(length) do
+      {:ok, %Put{path: path, length: valid_length}}
     else
-      false -> {:error, :invalid_path}
-      _ -> :incomplete
+      {:error, :pattern_match_failed} -> {:error, {:usage, :put}}
+      false -> {:error, :illegal_file_name}
+      {:error, :invalid_length} = err -> err
     end
   end
 
-  defp parse_put_length(value) do
-    with {:ok, maybe_length, rest} <- split_on_newline(value) do
-      cond do
-        String.match?(maybe_length, ~r/^[[:digit:]]+/) ->
-          %{"length" => length} = Regex.named_captures(~r/^(?<length>[[:digit:]]+)/, maybe_length)
-          {:ok, String.to_integer(length), rest}
-
-        String.match?(maybe_length, ~r/^[^[:space:]].*/) ->
-          {:ok, 0, rest}
-
-        true ->
-          {:error, :invalid_length}
-      end
-    end
+  def parse_command(data) do
+    {:error, {:illegal_method, data |> String.split(" ") |> Elixir.List.first()}}
   end
 
-  @spec parse_path(binary()) :: {:ok, path(), binary()} | :incomplete | error()
-  defp parse_path(value) do
-    with {:ok, maybe_path, rest} <- split_on_newline(value),
-         true <- is_path?(maybe_path) do
-      {:ok, maybe_path, rest}
-    else
-      :incomplete -> :incomplete
-      _ -> {:error, :invalid_path}
+  defp parse_valid_length(maybe_length) do
+    cond do
+      String.match?(maybe_length, ~r/^[[:digit:]]+/) ->
+        %{"length" => length} = Regex.named_captures(~r/^(?<length>[[:digit:]]+)/, maybe_length)
+        {:ok, String.to_integer(length)}
+
+      String.match?(maybe_length, ~r/^[^[:space:]].*/) ->
+        {:ok, 0}
+
+      true ->
+        {:error, :invalid_length}
     end
   end
 

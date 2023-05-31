@@ -69,7 +69,15 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
              | Put.t()}
   def parse(data) do
     with {:ok, data} <- split_newline(data) do
-      parse_command(data)
+      case split_command_parts(data) |> Elixir.List.first(nil) do
+        nil ->
+          {:error, {:illegal_method, ""}}
+
+        cmd ->
+          cmd = String.downcase(cmd)
+          rest_of_data = String.slice(data, String.length(cmd)..-1)
+          parse_command(cmd <> rest_of_data)
+      end
     end
   end
 

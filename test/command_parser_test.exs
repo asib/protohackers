@@ -154,4 +154,8 @@ defmodule CommandParserTest do
   test "can parse invalid revision" do
     assert parse_command("get /a rrrr1\n") == {:error, :invalid_revision}
   end
+
+  test "parse case-insensitively" do
+    assert parse("LiSt /\n") == {:ok, %CommandParser.List{path: "/"}}
+  end
 end

@@ -89,6 +89,13 @@ defmodule CommandParserTest do
     assert parse_command("put a b c d e f") == {:error, {:usage, :put}}
   end
 
+  test "put: illegal file name" do
+    assert parse_command("put / 1") == {:error, :illegal_file_name}
+    assert parse_command("put /a/ 1") == {:error, :illegal_file_name}
+    assert parse_command("put /% 1") == {:error, :illegal_file_name}
+    assert parse_command("put /\\ 1") == {:error, :illegal_file_name}
+  end
+
   test "put: can't have more than one space after file path" do
     assert parse_command("put /test       $$$$$") == {:error, {:usage, :put}}
   end

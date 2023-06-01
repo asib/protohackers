@@ -9,7 +9,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   defstruct [:socket, :buffer]
 
   def server_socket_opts do
-    [packet: :line, buffer: 1024 * 100]
+    [packet: :line, active: :once, buffer: 1024 * 100]
   end
 
   def applications do
@@ -49,6 +49,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
     case CommandParser.parse(data) do
       {:error, :no_newline} ->
         Logger.info("#{inspect(state.socket)}: incomplete message, finished parsing")
+        :inet.setopts(state.socket, active: :once)
         {:noreply, state}
 
       {:error, {:illegal_method, method}} ->
@@ -57,24 +58,30 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
         {:stop, :normal, state}
 
       {{:ok, %CommandParser.Put{path: path, length: length}}, rest} ->
-        Logger.info("#{inspect(state.socket)}: #{data}")
+        Logger.info("#{inspect(state.socket)}: Reading data\n")
 
         # First, let's get what we can from the rest of the buffer
         file_read_result =
           case String.slice(rest, 0, length) do
             data when byte_size(data) == length ->
               # If everything's there, return it and whatever is left in the buffer.
+              Logger.info("#{inspect(state.socket)}: Got it all\n")
               {data, String.slice(rest, length..-1)}
 
             data ->
               # If we don't have enough in the buffer, switch to passive
               # mode and read the remaining bytes manually.
+              Logger.info(
+                "#{inspect(state.socket)}: got #{byte_size(data)}, reading #{length - byte_size(data)} bytes manually\n"
+              )
+
               :inet.setopts(state.socket, active: false, packet: :raw)
               tcp_read = :gen_tcp.recv(state.socket, length - byte_size(data))
               :inet.setopts(state.socket, active: true, packet: :line)
 
               case tcp_read do
                 {:ok, data_rest} ->
+                  Logger.info("#{inspect(state.socket)}: Finished reading\n")
                   {data <> data_rest, ""}
 
                 err ->

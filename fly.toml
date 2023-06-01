@@ -8,9 +8,16 @@ kill_signal = "SIGTERM"
 kill_timeout = 5
 primary_region = "lhr"
 
+
+
 [[services]]
   internal_port = 5000
   protocol = "tcp"
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 10000
+    soft_limit = 9900
 
   [[services.ports]]
     port = "5000"

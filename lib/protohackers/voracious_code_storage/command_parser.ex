@@ -54,26 +54,11 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   @type error() :: {:error, :invalid_path | :invalid_length | {:illegal_method, String.t()}}
   @type result() :: :help | List.t() | Get.t() | Put.t()
 
-  @spec parse(binary) ::
-          {:error, :no_newline}
-          | {{:error,
-              :illegal_dir_name
-              | :illegal_file_name
-              | :illegal_method
-              | :invalid_length
-              | :invalid_revision
-              | {:illegal_method, any}
-              | {:usage, :get | :list | :put}}
-             | {:ok,
-                :help
-                | List.t()
-                | Get.t()
-                | Put.t()}, binary}
   def parse(data) do
     with {:ok, data, rest} <- split_newline(data) do
       case split_command_parts(data) |> Elixir.List.first(nil) do
         nil ->
-          {{:error, :illegal_method}, ""}
+          {:error, {:illegal_method, ""}}
 
         cmd ->
           cmd = String.downcase(cmd)
@@ -82,6 +67,7 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
           with {:ok, result} <- parse_command(cmd <> rest_of_data) do
             {{:ok, result}, rest}
           else
+            {:error, {:illegal_method, _}} = err -> err
             err -> {err, rest}
           end
       end
@@ -179,3 +165,5 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
     value =~ ~r'^/[[:alnum:]_\-\./]*$'
   end
 end
+
+# PUT /f=J}5 100\n

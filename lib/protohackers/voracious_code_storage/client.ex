@@ -165,6 +165,9 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
               {:error, :no_such_file} ->
                 senderr(state, "no such file")
 
+              {:error, :no_such_revision} ->
+                senderr(state, "no such revision")
+
               {:ok, file_data} ->
                 sendmsg(state, "OK #{byte_size(file_data)}")
                 # Using raw send to avoid appending newline.

@@ -5,7 +5,8 @@ defmodule FileSystemTest do
 
   alias Protohackers.VoraciousCodeStorage.FileSystem.{
     File,
-    FileListing
+    FileListing,
+    DirListing
   }
 
   setup do
@@ -45,12 +46,29 @@ defmodule FileSystemTest do
            ]
   end
 
+  test "list shows directories" do
+    FileSystem.put("/a", "")
+    FileSystem.put("/b/c", "")
+
+    assert FileSystem.list("/") == [
+             %FileListing{name: "a", revision: 1},
+             %DirListing{name: "b"}
+           ]
+
+    FileSystem.put("/a/b/c/d/e", "")
+
+    assert FileSystem.list("/a/b/c/") == [
+             %DirListing{name: "d"}
+           ]
+  end
+
   test "files in other directories are not listed" do
     assert FileSystem.put("/a", "a") == {:ok, 1}
     assert FileSystem.put("/a/b", "b") == {:ok, 1}
 
     assert FileSystem.list("/") == [
-             %FileListing{name: "a", revision: 1}
+             %FileListing{name: "a", revision: 1},
+             %DirListing{name: "a"}
            ]
 
     assert FileSystem.list("/a") == [

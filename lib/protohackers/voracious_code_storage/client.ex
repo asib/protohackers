@@ -36,8 +36,8 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
     state = %{state | buffer: buffer <> data}
 
-    # {:ok, {ip, _port}} = :inet.peername(state.socket)
-    # File.write!("data-#{inspect(ip)}", data, [:append])
+    {:ok, {ip, _port}} = :inet.peername(state.socket)
+    File.write!("data-#{inspect(ip)}", data, [:append])
 
     handle_data(state)
   end
@@ -86,8 +86,8 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
                 {:ok, data_rest} ->
                   Logger.info("#{inspect(state.socket)}: Finished reading\n")
 
-                  # {:ok, {ip, _port}} = :inet.peername(state.socket)
-                  # File.write!("data-#{inspect(ip)}", data_rest, [:append])
+                  {:ok, {ip, _port}} = :inet.peername(state.socket)
+                  File.write!("data-#{inspect(ip)}", data_rest, [:append])
 
                   {data <> data_rest, ""}
 
@@ -141,8 +141,12 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
             files_in_path = FileSystem.list(path)
             sendmsg(state, "OK #{Enum.count(files_in_path)}")
 
-            Enum.each(files_in_path, fn file_listing ->
-              sendmsg(state, "#{file_listing.name} r#{file_listing.revision}")
+            Enum.each(files_in_path, fn
+              %FileSystem.FileListing{name: name, revision: revision} ->
+                sendmsg(state, "#{name} r#{revision}")
+
+              %FileSystem.DirListing{name: name} ->
+                sendmsg(state, "#{name}/ DIR")
             end)
 
             send_ready(state)

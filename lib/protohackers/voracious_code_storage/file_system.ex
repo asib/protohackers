@@ -21,6 +21,12 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
     end
   end
 
+  defmodule DirListing do
+    typedstruct do
+      field(:name, String.t(), enforce: true)
+    end
+  end
+
   @type files_map() :: %{dir_path() => list(File.t())}
 
   typedstruct do
@@ -42,7 +48,6 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
       case Map.fetch(files_by_path, path) do
         {:ok, files_in_path} ->
           files_in_path
-          |> Enum.sort_by(fn file -> file.name end)
           |> Enum.map(fn file ->
             %FileListing{name: file.name, revision: file.revisions |> Map.keys() |> Enum.max()}
           end)
@@ -51,7 +56,32 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
           []
       end
 
-    {:reply, files_in_path, state}
+    directories_in_path =
+      files_by_path
+      |> Map.keys()
+      |> Enum.filter(&String.starts_with?(&1, path))
+      |> Enum.map(fn dir_path ->
+        dir_path
+        |> String.replace_prefix(path, "")
+        # The path given with the list command can optionally omit the trailing slash,
+        # in which case we want to remove it here.
+        |> String.trim_leading("/")
+        |> String.split("/", parts: 2)
+        |> List.first()
+        |> then(&%DirListing{name: &1})
+      end)
+      |> Enum.filter(fn
+        %DirListing{name: name} -> name != "" and not is_nil(name)
+      end)
+
+    sorted_listing =
+      (files_in_path ++ directories_in_path)
+      |> Enum.sort_by(fn
+        %FileListing{name: name} -> name
+        %DirListing{name: name} -> name
+      end)
+
+    {:reply, sorted_listing, state}
   end
 
   @impl true

@@ -139,12 +139,17 @@ defmodule Protohackers.VoraciousCodeStorage.FileSystem do
 
   @spec update_file(File.t(), binary()) :: {File.t(), revision()}
   def update_file(%File{revisions: revisions} = file, new_data) do
-    new_revision =
-      (revisions
-       |> Map.keys()
-       |> Enum.max(fn -> 0 end)) + 1
+    max_revision =
+      revisions
+      |> Map.keys()
+      |> Enum.max(fn -> 0 end)
 
-    {%File{file | revisions: Map.put(revisions, new_revision, new_data)}, new_revision}
+    if max_revision != 0 and Map.fetch!(revisions, max_revision) == new_data do
+      {file, max_revision}
+    else
+      new_revision = max_revision + 1
+      {%File{file | revisions: Map.put(revisions, new_revision, new_data)}, new_revision}
+    end
   end
 
   @spec file_name_and_directory(String.t()) :: {dir_path(), String.t()}

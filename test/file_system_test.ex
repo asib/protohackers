@@ -76,6 +76,11 @@ defmodule FileSystemTest do
            ]
   end
 
+  test "updating file does not create new revision if content is the same as latest revision" do
+    assert FileSystem.put("/a", "a") == {:ok, 1}
+    assert FileSystem.put("/a", "a") == {:ok, 1}
+  end
+
   test "update_file with new revisions adds initial revision" do
     assert FileSystem.update_file(%FileSystem.File{name: "a", revisions: %{}}, "one") ==
              {%FileSystem.File{name: "a", revisions: %{1 => "one"}}, 1}

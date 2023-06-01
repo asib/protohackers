@@ -36,6 +36,9 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
     state = %{state | buffer: buffer <> data}
 
+    # {:ok, {ip, _port}} = :inet.peername(state.socket)
+    # File.write!("data-#{inspect(ip)}", data, [:append])
+
     handle_data(state)
   end
 
@@ -75,13 +78,17 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
                 "#{inspect(state.socket)}: got #{byte_size(data)}, reading #{length - byte_size(data)} bytes manually\n"
               )
 
-              :inet.setopts(state.socket, active: false, packet: :raw)
+              :inet.setopts(state.socket, packet: :raw)
               tcp_read = :gen_tcp.recv(state.socket, length - byte_size(data))
-              :inet.setopts(state.socket, active: true, packet: :line)
+              :inet.setopts(state.socket, packet: :line)
 
               case tcp_read do
                 {:ok, data_rest} ->
                   Logger.info("#{inspect(state.socket)}: Finished reading\n")
+
+                  # {:ok, {ip, _port}} = :inet.peername(state.socket)
+                  # File.write!("data-#{inspect(ip)}", data_rest, [:append])
+
                   {data <> data_rest, ""}
 
                 err ->
@@ -93,10 +100,12 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
         case file_read_result do
           {:error, _} = err ->
+            Logger.info("#{inspect(state.socket)}: #{path} failed to read")
             {:stop, err, state}
 
           {file_data, buffer_rest} ->
             {:ok, file_revision} = FileSystem.put(path, file_data)
+            Logger.info("#{inspect(state.socket)}: #{file_data}")
             sendmsg(state, "OK r#{file_revision}")
 
             send_ready(state)

@@ -13,9 +13,9 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   end
 
   defp split_newline(data) do
-    case String.split(data, "\n") do
+    case String.split(data, "\n", parts: 2) do
       [_ | []] -> {:error, :no_newline}
-      [data | rest] -> {:ok, data, Enum.join(rest, "\n")}
+      [data | [rest]] -> {:ok, data, rest}
       _ -> {:error, :no_newline}
     end
   end
@@ -55,31 +55,34 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
   @type result() :: :help | List.t() | Get.t() | Put.t()
 
   @spec parse(binary) ::
-          {:error,
-           :illegal_dir_name
-           | :illegal_file_name
-           | :invalid_length
-           | :invalid_revision
-           | :no_newline
-           | {:illegal_method, any}
-           | {:usage, :get | :list | :put}}
-          | {:ok,
-             :help
-             | List.t()
-             | Get.t()
-             | Put.t()}
+          {:error, :no_newline}
+          | {{:error,
+              :illegal_dir_name
+              | :illegal_file_name
+              | :illegal_method
+              | :invalid_length
+              | :invalid_revision
+              | {:illegal_method, any}
+              | {:usage, :get | :list | :put}}
+             | {:ok,
+                :help
+                | List.t()
+                | Get.t()
+                | Put.t()}, binary}
   def parse(data) do
     with {:ok, data, rest} <- split_newline(data) do
       case split_command_parts(data) |> Elixir.List.first(nil) do
         nil ->
-          {:error, {:illegal_method, ""}}
+          {{:error, :illegal_method}, ""}
 
         cmd ->
           cmd = String.downcase(cmd)
           rest_of_data = String.slice(data, String.length(cmd)..-1)
 
           with {:ok, result} <- parse_command(cmd <> rest_of_data) do
-            {:ok, result, rest}
+            {{:ok, result}, rest}
+          else
+            err -> {err, rest}
           end
       end
     end

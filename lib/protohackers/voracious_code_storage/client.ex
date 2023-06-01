@@ -9,7 +9,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   defstruct [:socket, :buffer]
 
   def server_socket_opts do
-    [packet: :line, active: :once]
+    [packet: :line, buffer: 1024 * 100]
   end
 
   def applications do
@@ -34,91 +34,121 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   def handle_info({:tcp, _socket, data}, %{buffer: buffer} = state) do
     Logger.info("#{inspect(state.socket)}: #{inspect(data)}")
 
+    state = %{state | buffer: buffer <> data}
+
+    handle_data(state)
+  end
+
+  def handle_info({:tcp_closed, _socket}, state) do
+    {:stop, :normal, state}
+  end
+
+  def handle_data(state) do
+    data = state.buffer
+
     case CommandParser.parse(data) do
       {:error, :no_newline} ->
-        Logger.error("#{inspect(state.socket)}: got incomplete message")
-        noreply(%{state | buffer: buffer <> data})
+        Logger.info("#{inspect(state.socket)}: incomplete message, finished parsing")
+        {:noreply, state}
 
       {:error, {:illegal_method, method}} ->
         Logger.info("#{inspect(state.socket)}: illegal method: #{method}")
         senderr(state, "illegal method: #{method}")
         {:stop, :normal, state}
 
-      {:error, {:usage, command}} ->
-        Logger.info("#{inspect(state.socket)}: usage: #{usage(command)}\n")
-        senderr(state, "usage: #{usage(command)}")
-        noreply(state)
-
-      {:error, :illegal_dir_name} ->
-        Logger.info("#{inspect(state.socket)}: illegal dir name\n")
-        senderr(state, "illegal dir name")
-        noreply(state)
-
-      {:error, :illegal_file_name} ->
-        Logger.info("#{inspect(state.socket)}: illegal file name\n")
-        senderr(state, "illegal file name")
-        noreply(state)
-
-      {:error, :invalid_revision} ->
-        Logger.info("#{inspect(state.socket)}: no such revision\n")
-        senderr(state, "no such revision")
-        ready(state)
-
-      {:ok, :help} ->
-        Logger.info("#{inspect(state.socket)}: HELP\n")
-        sendmsg(state, "OK usage: HELP|GET|PUT|LIST")
-        ready(state)
-
-      {:ok, %CommandParser.List{path: path}} ->
-        Logger.info("#{inspect(state.socket)}: #{data}")
-        files_in_path = FileSystem.list(path)
-        sendmsg(state, "OK #{Enum.count(files_in_path)}")
-
-        Enum.each(files_in_path, fn file_listing ->
-          sendmsg(state, "#{file_listing.name} r#{file_listing.revision}")
-        end)
-
-        ready(state)
-
-      {:ok, %CommandParser.Get{path: path, revision: revision}} ->
+      {{:ok, %CommandParser.Put{path: path, length: length}}, rest} ->
         Logger.info("#{inspect(state.socket)}: #{data}")
 
-        case FileSystem.get(path, revision) do
-          {:error, :no_such_file} ->
-            senderr(state, "no such file")
+        # First, let's get what we can from the rest of the buffer
+        file_read_result =
+          case String.slice(rest, 0, length) do
+            data when byte_size(data) == length ->
+              # If everything's there, return it and whatever is left in the buffer.
+              {data, String.slice(rest, length..-1)}
 
-          {:ok, file_data} ->
-            sendmsg(state, "OK #{byte_size(file_data)}")
-            # Using raw send to avoid appending newline.
-            :gen_tcp.send(state.socket, file_data)
-        end
+            data ->
+              # If we don't have enough in the buffer, switch to passive
+              # mode and read the remaining bytes manually.
+              :inet.setopts(state.socket, active: false, packet: :raw)
+              tcp_read = :gen_tcp.recv(state.socket, length - byte_size(data))
+              :inet.setopts(state.socket, active: true, packet: :line)
 
-        ready(state)
+              case tcp_read do
+                {:ok, data_rest} ->
+                  {data <> data_rest, ""}
 
-      {:ok, %CommandParser.Put{path: path, length: length}} ->
-        Logger.info("#{inspect(state.socket)}: #{data}")
-        :inet.setopts(state.socket, packet: :raw)
-
-        case :gen_tcp.recv(state.socket, length) do
-          {:ok, file_data} ->
-            {:ok, file_revision} = FileSystem.put(path, file_data)
-            sendmsg(state, "OK r#{file_revision}")
-
-            ready(state)
-
-          err ->
-            Logger.error(inspect(err))
-        end
+                err ->
+                  {:error, {:file_read, err}}
+              end
+          end
 
         Logger.info("#{inspect(state.socket)}: read file data")
 
-        :inet.setopts(state.socket, packet: :line)
-        ready(state)
-    end
-  end
+        case file_read_result do
+          {:error, _} = err ->
+            {:stop, err, state}
 
-  def handle_info({:tcp_closed, _socket}, state) do
-    {:stop, :normal, state}
+          {file_data, buffer_rest} ->
+            {:ok, file_revision} = FileSystem.put(path, file_data)
+            sendmsg(state, "OK r#{file_revision}")
+
+            send_ready(state)
+            handle_data(%{state | buffer: buffer_rest})
+        end
+
+      {result, rest} ->
+        case result do
+          {:error, {:usage, command}} ->
+            Logger.info("#{inspect(state.socket)}: usage: #{usage(command)}\n")
+            senderr(state, "usage: #{usage(command)}")
+
+          {:error, :illegal_dir_name} ->
+            Logger.info("#{inspect(state.socket)}: illegal dir name\n")
+            senderr(state, "illegal dir name")
+
+          {:error, :illegal_file_name} ->
+            Logger.info("#{inspect(state.socket)}: illegal file name\n")
+            senderr(state, "illegal file name")
+
+          {:error, :invalid_revision} ->
+            Logger.info("#{inspect(state.socket)}: no such revision\n")
+            senderr(state, "no such revision")
+            send_ready(state)
+
+          {:ok, :help} ->
+            Logger.info("#{inspect(state.socket)}: HELP\n")
+            sendmsg(state, "OK usage: HELP|GET|PUT|LIST")
+            send_ready(state)
+
+          {:ok, %CommandParser.List{path: path}} ->
+            Logger.info("#{inspect(state.socket)}: #{data}")
+            files_in_path = FileSystem.list(path)
+            sendmsg(state, "OK #{Enum.count(files_in_path)}")
+
+            Enum.each(files_in_path, fn file_listing ->
+              sendmsg(state, "#{file_listing.name} r#{file_listing.revision}")
+            end)
+
+            send_ready(state)
+
+          {:ok, %CommandParser.Get{path: path, revision: revision}} ->
+            Logger.info("#{inspect(state.socket)}: #{data}")
+
+            case FileSystem.get(path, revision) do
+              {:error, :no_such_file} ->
+                senderr(state, "no such file")
+
+              {:ok, file_data} ->
+                sendmsg(state, "OK #{byte_size(file_data)}")
+                # Using raw send to avoid appending newline.
+                :gen_tcp.send(state.socket, file_data)
+            end
+
+            send_ready(state)
+        end
+
+        handle_data(%{state | buffer: rest})
+    end
   end
 
   defp sendmsg(state, data) do
@@ -129,14 +159,8 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
     sendmsg(state, "ERR #{err}")
   end
 
-  defp ready(state) do
-    :inet.setopts(state.socket, active: :once)
-    {:noreply, state, {:continue, :ready}}
-  end
-
-  defp noreply(state) do
-    :inet.setopts(state.socket, active: :once)
-    {:noreply, state}
+  defp send_ready(state) do
+    sendmsg(state, "READY")
   end
 
   defp usage(:list), do: "LIST dir"

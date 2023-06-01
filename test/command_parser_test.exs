@@ -34,7 +34,7 @@ defmodule CommandParserTest do
     {"/.", "/.", "can parse /."}
   ]
 
-  for {input, expected, case_name} <- @list_success_cases do
+  for {input, expected, case_name} <- @get_success_cases do
     test "get: #{case_name}" do
       assert parse_command("get #{unquote(input)}") ==
                {:ok, %CommandParser.Get{path: unquote(expected), revision: :latest}}
@@ -156,10 +156,18 @@ defmodule CommandParserTest do
   end
 
   test "parse case-insensitively" do
-    assert parse("LiSt /\n") == {:ok, %CommandParser.List{path: "/"}, ""}
+    assert parse("LiSt /\n") == {{:ok, %CommandParser.List{path: "/"}}, ""}
   end
 
   test "returns rest of data" do
-    assert parse("help   \ntesting") == {:ok, :help, "testing"}
+    assert parse("help   \ntesting") == {{:ok, :help}, "testing"}
+  end
+
+  test "can parse put readme from protohackers suite" do
+    file_data = File.read!("kilo_readme.md")
+    readme_cmd = ~s"PUT /kilo.0001/README.md 735\n#{file_data}"
+
+    assert parse(readme_cmd) ==
+             {{:ok, %CommandParser.Put{path: "/kilo.0001/README.md", length: 735}}, file_data}
   end
 end

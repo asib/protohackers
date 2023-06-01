@@ -32,12 +32,12 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
   end
 
   def handle_info({:tcp, _socket, data}, %{buffer: buffer} = state) do
-    Logger.info("#{inspect(state.socket)}: #{inspect(data)}")
+    # Logger.info("#{inspect(state.socket)}: #{inspect(data)}")
 
     state = %{state | buffer: buffer <> data}
 
-    {:ok, {ip, _port}} = :inet.peername(state.socket)
-    File.write!("data-#{inspect(ip)}", data, [:append])
+    {:ok, {ip, port}} = :inet.peername(state.socket)
+    File.write!("data-#{inspect(ip)}-#{inspect(port)}", data, [:append])
 
     handle_data(state)
   end
@@ -86,8 +86,8 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
                 {:ok, data_rest} ->
                   Logger.info("#{inspect(state.socket)}: Finished reading\n")
 
-                  {:ok, {ip, _port}} = :inet.peername(state.socket)
-                  File.write!("data-#{inspect(ip)}", data_rest, [:append])
+                  {:ok, {ip, port}} = :inet.peername(state.socket)
+                  File.write!("data-#{inspect(ip)}-#{inspect(port)}", data_rest, [:append])
 
                   {data <> data_rest, ""}
 
@@ -104,9 +104,15 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
             {:stop, err, state}
 
           {file_data, buffer_rest} ->
-            {:ok, file_revision} = FileSystem.put(path, file_data)
-            Logger.info("#{inspect(state.socket)}: #{file_data}")
-            sendmsg(state, "OK r#{file_revision}")
+            case String.printable?(file_data) do
+              true ->
+                {:ok, file_revision} = FileSystem.put(path, file_data)
+                # Logger.info("#{inspect(state.socket)}: #{file_data}")
+                sendmsg(state, "OK r#{file_revision}")
+
+              false ->
+                senderr(state, "text files only")
+            end
 
             send_ready(state)
             handle_data(%{state | buffer: buffer_rest})
@@ -124,6 +130,7 @@ defmodule Protohackers.VoraciousCodeStorage.Client do
 
           {:error, :illegal_file_name} ->
             Logger.info("#{inspect(state.socket)}: illegal file name\n")
+            Logger.info("#{inspect(state.socket)}: #{data}\n")
             senderr(state, "illegal file name")
 
           {:error, :invalid_revision} ->

@@ -162,8 +162,9 @@ defmodule Protohackers.VoraciousCodeStorage.CommandParser do
 
   @spec is_path?(binary()) :: boolean()
   defp is_path?(value) do
-    value =~ ~r'^/[[:alnum:]_\-\./]*$'
+    value =~ ~r'^/[[:alnum:]_\-\./]*$' and !String.contains?(value, "//")
   end
 end
 
 # PUT /f=J}5 100\n
+# PUT //TEGzVsSS5
